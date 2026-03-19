@@ -96,37 +96,34 @@ function renderResults(word, near, far) {
     `<span class="rchip rchip-${type}" onclick="searchWord('${w}')"
            style="animation-delay:${i*0.04}s">${w}</span>`
   ).join('');
-
-  genPrompt('near');
-  genPrompt('far');
-  genPrompt('combo');
 }
 
 // ── Prompts ──
-function genPrompt(mode) {
+async function genPrompt(mode) {
   const p = currentWord;
-  const n = currentNear.length >= 2 ? currentNear : ['静寂', '余白'];
-  const f = currentFar.length  >= 2 ? currentFar  : ['虚空', '彼方'];
+  const n = currentNear.slice(0, 5).join(',');
+  const f = currentFar.slice(0, 5).join(',');
 
-  const templates = mode === 'near' ? T_NEAR : mode === 'far' ? T_FAR : T_COMBO;
-  const elId      = mode === 'near' ? 'nearPrompt' : mode === 'far' ? 'farPrompt' : 'comboPrompt';
-
-  let idx;
-  do { idx = Math.floor(Math.random() * templates.length); }
-  while (idx === lastPromptIdx[mode] && templates.length > 1);
-  lastPromptIdx[mode] = idx;
-
-  const text = mode === 'combo' ? templates[idx](p, n, f)
-             : mode === 'near'  ? templates[idx](p, n)
-             :                    templates[idx](p, f);
+  const elId = mode === 'near'  ? 'nearPrompt'
+             : mode === 'far'   ? 'farPrompt'
+             :                    'comboPrompt';
 
   const el = document.getElementById(elId);
-  el.textContent = text;
-  el.classList.remove('flash');
-  void el.offsetWidth;
-  el.classList.add('flash');
-}
+  el.textContent = '生成中…';
 
+  try {
+    const res = await fetch(
+      `${API}/prompt?pivot=${encodeURIComponent(p)}&near=${encodeURIComponent(n)}&far=${encodeURIComponent(f)}&mode=${mode}`
+    );
+    const data = await res.json();
+    el.textContent = data.prompt;
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  } catch(e) {
+    el.textContent = 'エラーが発生しました';
+  }
+}
 function regenPrompt(mode) { if (currentWord) genPrompt(mode); }
 
 function searchWord(word) {

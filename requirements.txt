@@ -3,3 +3,4 @@ fugashi
 unidic-lite
 fastapi
 uvicorn
+python-dotenv
