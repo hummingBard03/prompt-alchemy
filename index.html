@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>錬語術</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="logo">錬 語 術</div>
+  <div class="logo-sub">Word2Vec × Prompt Alchemy</div>
+  <div class="status-dot">
+    <div class="dot" id="statusDot"></div>
+    <span id="statusText">接続確認中</span>
+  </div>
+</header>
+
+<div class="main">
+  <div class="left">
+    <div class="search-area">
+      <div class="search-label">単語を入力</div>
+      <div class="search-box">
+        <input type="text" id="wordInput" placeholder="霧、孤独、廃墟…" autocomplete="off">
+        <button class="btn-gold" onclick="search()" id="searchBtn">展開</button>
+      </div>
+      <div class="topn-row">
+        表示数
+        <input type="range" id="topnSlider" min="3" max="20" value="8"
+               oninput="document.getElementById('topnVal').textContent=this.value">
+        <span class="topn-val" id="topnVal">8</span>
+      </div>
+    </div>
+    <div class="history-wrap">
+      <div class="history-label">// 履歴</div>
+      <div class="history-list" id="historyList">
+        <span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="right" id="rightPanel">
+    <div class="placeholder" id="placeholder">
+      <div class="big">◈</div>
+      <p>単語を入力して「展開」を押すと<br>Word2Vecで近い・遠い単語が出ます<br><br>チップをクリックするとその単語で再検索</p>
+    </div>
+
+    <div id="resultArea" style="display:none">
+      <div class="pivot-row">
+        <div class="pivot-word" id="pivotWord"></div>
+        <div class="pivot-hint" id="pivotHint">を展開中</div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="result-section">
+        <div class="section-header">
+          <div class="section-label label-near">▲ 近い単語</div>
+          <button class="btn-ghost btn-sm" onclick="regenPrompt('near')">プロンプト再生成</button>
+        </div>
+        <div class="chips-row" id="nearChips"></div>
+        <div class="prompt-card">
+          <div class="prompt-card-label">// プロンプト候補</div>
+          <div class="prompt-text" id="nearPrompt"></div>
+          <div class="prompt-actions">
+            <button class="btn-ghost btn-sm" onclick="copyText('nearPrompt')">コピー</button>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="result-section">
+        <div class="section-header">
+          <div class="section-label label-far">▼ 遠い単語（対極）</div>
+          <button class="btn-ghost btn-sm" onclick="regenPrompt('far')">プロンプト再生成</button>
+        </div>
+        <div class="chips-row" id="farChips"></div>
+        <div class="prompt-card">
+          <div class="prompt-card-label">// プロンプト候補</div>
+          <div class="prompt-text" id="farPrompt"></div>
+          <div class="prompt-actions">
+            <button class="btn-ghost btn-sm" onclick="copyText('farPrompt')">コピー</button>
+          </div>
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="result-section">
+        <div class="section-header">
+          <div class="section-label label-rand">◆ 組み合わせ</div>
+          <button class="btn-ghost btn-sm" onclick="regenPrompt('combo')">プロンプト再生成</button>
+        </div>
+        <div class="chips-row" id="comboChips"></div>
+        <div class="prompt-card">
+          <div class="prompt-card-label">// 全要素ミックス</div>
+          <div class="prompt-text" id="comboPrompt"></div>
+          <div class="prompt-actions">
+            <button class="btn-ghost btn-sm" onclick="copyText('comboPrompt')">コピー</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
