@@ -81,8 +81,8 @@ function renderResults(word, near, far) {
 // ── Prompts ──
 async function genPrompt(mode) {
   const p = currentWord;
-  const n = currentNear.slice(0, 5).join(',');
-  const f = currentFar.slice(0, 5).join(',');
+  const n = shuffle(currentNear).slice(0, randomInt(3, currentNear.length));
+  const f = shuffle(currentFar).slice(0, randomInt(3, currentFar.length));
 
   const elId = mode === 'near'  ? 'nearPrompt'
              : mode === 'far'   ? 'farPrompt'
@@ -92,15 +92,16 @@ async function genPrompt(mode) {
   el.textContent = '生成中…';
 
   try {
-    const res = await fetch(
-      `${API}/prompt?pivot=${encodeURIComponent(p)}&near=${encodeURIComponent(n)}&far=${encodeURIComponent(f)}&mode=${mode}`
-    );
+    const res = await fetch(`${API}/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pivot: p, near: n, far: f, mode }),
+    });
     const data = await res.json();
     el.textContent = data.prompt;
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
-
   } catch(e) {
     el.textContent = 'エラーが発生しました';
   }
@@ -112,12 +113,29 @@ function searchWord(word) {
   search();
 }
 
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 // ── Analyze ──
 async function analyzePrompt(elId) {
   const text = document.getElementById(elId).textContent;
   if (!text || text === '生成中…') return;
   try {
-    const res = await fetch(`${API}/analyze?text=${encodeURIComponent(text)}`);
+    const res = await fetch(`${API}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
     const data = await res.json();
     if (data.words && data.words.length > 0) {
       addAnalyzedWords(data.words);
@@ -126,6 +144,7 @@ async function analyzePrompt(elId) {
     console.error('analyze error:', e);
   }
 }
+
 
 // ── History ──
 function addHistory(word) {
