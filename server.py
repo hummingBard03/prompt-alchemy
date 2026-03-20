@@ -8,7 +8,6 @@ import anthropic
 import fugashi
 
 load_dotenv()
-client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"])

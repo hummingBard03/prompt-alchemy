@@ -6,26 +6,6 @@ let currentFar  = [];
 let history = [];
 let lastPromptIdx = {};
 
-// ── Templates ──
-const T_NEAR = [
-  (p, n) => `${n[0]} の気配を帯びた ${p}、${n[1]} に滲む光`,
-  (p, n) => `${p} と ${n[0]} が溶け合う情景、${n[1]} の息遣い`,
-  (p, n) => `${n[0]} に包まれた ${p}、${n[1]} な質感の中で`,
-  (p, n) => `${p} の内側にある ${n[0]}、${n[1]} が漂う空気`,
-];
-const T_FAR = [
-  (p, f) => `${p} の対極に ${f[0]} が佇む、${f[1]} との断絶`,
-  (p, f) => `${f[0]} の中に ${p} が宿る矛盾、${f[1]} の予感`,
-  (p, f) => `${p} から ${f[0]} へと反転する瞬間、${f[1]} の余韻`,
-  (p, f) => `${f[0]} に侵食される ${p}、${f[1]} が広がる地平`,
-];
-const T_COMBO = [
-  (p, n, f) => `${n[0]} と ${f[0]} が交差する ${p}、${n[1]} の質感`,
-  (p, n, f) => `${f[0]} の中に ${n[0]} が宿る、${p} に漂う余白`,
-  (p, n, f) => `${p} — ${n[0]} の息遣い × ${f[0]} の静寂`,
-  (p, n, f) => `${n[0]} に滲む ${p}、${f[0]} へと反転する光`,
-];
-
 // ── Server check ──
 async function checkServer() {
   try {
@@ -132,6 +112,21 @@ function searchWord(word) {
   search();
 }
 
+// ── Analyze ──
+async function analyzePrompt(elId) {
+  const text = document.getElementById(elId).textContent;
+  if (!text || text === '生成中…') return;
+  try {
+    const res = await fetch(`${API}/analyze?text=${encodeURIComponent(text)}`);
+    const data = await res.json();
+    if (data.words && data.words.length > 0) {
+      addAnalyzedWords(data.words);
+    }
+  } catch(e) {
+    console.error('analyze error:', e);
+  }
+}
+
 // ── History ──
 function addHistory(word) {
   const time = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -178,40 +173,7 @@ function copyText(id) {
   });
 }
 
-async function analyzePrompt(elId) {
-  const text = document.getElementById(elId).textContent;
-  if (!text || text === '生成中…') return;
-  try {
-    const res = await fetch(`${API}/analyze?text=${encodeURIComponent(text)}`);
-    const data = await res.json();
-    if (data.words && data.words.length > 0) {
-      addAnalyzedWords(data.words);
-    }
-  } catch(e) {
-    console.error('analyze error:', e);
-  }
-}
-
 function addAnalyzedWords(words) {
-
-  const el = document.getElementById('analyzedSection');
-  if (!history.length) {
-    el.innerHTML = '<span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>';
-    return;
-  }
-  el.innerHTML = history.map(h => `
-    <div class="history-item" onclick="searchWord('${h.word}')">
-      <span class="history-item-word">${h.word}</span>
-      <span class="history-item-time">${h.time}</span>
-    </div>
-  `).join('');
-
-
-
-
-  const section = document.getElementById('analyzedSection');
-  section.style.display = 'block';
-
   document.getElementById('analyzedSection').innerHTML = words.map((w, i) =>`
     <div class="analyze-item" onclick="searchWord('${w}')">
       <span class="analyze-item-word">${w}</span>
