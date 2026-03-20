@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from gensim.models import KeyedVectors
 from dotenv import load_dotenv
 import anthropic
+import fugashi
 
 load_dotenv()
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
@@ -14,6 +15,8 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"])
 
 model = KeyedVectors.load("chive-1.3-mc90.kv")
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+tagger = fugashi.Tagger()
 
 @app.get("/similar")
 def similar(word: str, topn: int = 10):
@@ -60,5 +63,17 @@ def generate_prompt(pivot: str, near: str, far: str, mode: str = "combo"):
         }]
     )
     return {"prompt": message.content[0].text}
+
+@app.get("/analyze")
+def analyze(text: str):
+    words = []
+    for word in tagger(text):
+        pos = word.feature.pos1
+        surface = word.surface
+        # 名詞・形容詞・動詞の原形だけ抽出
+        if pos in ["名詞", "形容詞", "動詞"] and len(surface) >= 2:
+            words.append(surface)
+    return {"words": list(set(words))}
+
 
 app.mount("/", StaticFiles(directory=".", html=True), name="static")

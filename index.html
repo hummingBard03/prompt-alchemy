@@ -33,6 +33,14 @@
         <span class="topn-val" id="topnVal">8</span>
       </div>
     </div>
+
+    <div class="analyze-wrap">
+      <div class="analyze-label">// プロンプトから抽出</div>
+      <div class="analyze-list" id="analyzedSection">
+        <span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>
+      </div>
+    </div>
+
     <div class="history-wrap">
       <div class="history-label">// 履歴</div>
       <div class="history-list" id="historyList">
@@ -66,6 +74,7 @@
           <div class="prompt-text" id="nearPrompt"></div>
           <div class="prompt-actions">
             <button class="btn-ghost btn-sm" onclick="copyText('nearPrompt')">コピー</button>
+            <button class="btn-ghost btn-sm" onclick="analyzePrompt('nearPrompt')">単語を抽出</button>
           </div>
         </div>
       </div>
@@ -83,6 +92,7 @@
           <div class="prompt-text" id="farPrompt"></div>
           <div class="prompt-actions">
             <button class="btn-ghost btn-sm" onclick="copyText('farPrompt')">コピー</button>
+            <button class="btn-ghost btn-sm" onclick="analyzePrompt('farPrompt')">単語を抽出</button>
           </div>
         </div>
       </div>
@@ -100,6 +110,7 @@
           <div class="prompt-text" id="comboPrompt"></div>
           <div class="prompt-actions">
             <button class="btn-ghost btn-sm" onclick="copyText('comboPrompt')">コピー</button>
+            <button class="btn-ghost btn-sm" onclick="analyzePrompt('comboPrompt')">単語を抽出</button>
           </div>
         </div>
       </div>

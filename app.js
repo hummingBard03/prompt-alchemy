@@ -120,6 +120,7 @@ async function genPrompt(mode) {
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
+
   } catch(e) {
     el.textContent = 'エラーが発生しました';
   }
@@ -175,6 +176,48 @@ function copyText(id) {
     el.classList.add('flash');
     setTimeout(() => el.classList.remove('flash'), 500);
   });
+}
+
+async function analyzePrompt(elId) {
+  const text = document.getElementById(elId).textContent;
+  if (!text || text === '生成中…') return;
+  try {
+    const res = await fetch(`${API}/analyze?text=${encodeURIComponent(text)}`);
+    const data = await res.json();
+    if (data.words && data.words.length > 0) {
+      addAnalyzedWords(data.words);
+    }
+  } catch(e) {
+    console.error('analyze error:', e);
+  }
+}
+
+function addAnalyzedWords(words) {
+
+  const el = document.getElementById('analyzedSection');
+  if (!history.length) {
+    el.innerHTML = '<span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>';
+    return;
+  }
+  el.innerHTML = history.map(h => `
+    <div class="history-item" onclick="searchWord('${h.word}')">
+      <span class="history-item-word">${h.word}</span>
+      <span class="history-item-time">${h.time}</span>
+    </div>
+  `).join('');
+
+
+
+
+  const section = document.getElementById('analyzedSection');
+  section.style.display = 'block';
+
+  document.getElementById('analyzedSection').innerHTML = words.map((w, i) =>`
+    <div class="analyze-item" onclick="searchWord('${w}')">
+      <span class="analyze-item-word">${w}</span>
+    </div>  
+  `
+  ).join('');
 }
 
 // ── Init ──
