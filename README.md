@@ -1,17 +1,17 @@
 # 錬語術 — Prompt Alchemy
 
-Word2Vec を使って単語の「近い・遠い」を探索し、Claude API で画像生成プロンプトを生成するツール。
+Word2Vec を使って単語の「近い・遠い」を探索し、Claude API で画像生成プロンプトを生成するツール。生成されたプロンプトを形態素解析にかけて新しい単語を抽出する機能も持つ。
 
 ## 構成
 
 ```
 prompt-alchemy/
-├── server.py        # FastAPI サーバー（Word2Vec + Claude API）
+├── server.py        # FastAPI サーバー（Word2Vec + Claude API + 形態素解析）
 ├── index.html       # UI
 ├── style.css        # スタイル
 ├── app.js           # フロントエンドロジック
 ├── requirements.txt # Pythonライブラリ一覧
-├── .env             # APIキー（Git管理外）
+├── .env             # 環境変数（Git管理外）
 └── README.md
 ```
 
@@ -32,15 +32,17 @@ pip install -r requirements.txt
 
 [chiVe](https://github.com/WorksApplications/chiVe) から `chive-1.2-mc90.kv` と `chive-1.2-mc90.kv.vectors.npy` をダウンロードして、プロジェクトのルートに置く。
 
-## APIキーの設定
+## 環境変数の設定
 
 `.env` ファイルをプロジェクトのルートに作成する：
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
+MODEL_PATH=chive-1.2-mc90.kv
 ```
-
-`.env` は `.gitignore` に含まれているのでリポジトリには上がりません。
+`ANTHROPIC_API_KEY`にはClaudeAPIのAPIキーを設定。
+モデルファイルを変更したい場合は `MODEL_PATH` だけ書き換えればよい。`  
+.env` は `.gitignore` に含まれているのでリポジトリには上がりません。
 
 ## 起動
 
@@ -58,5 +60,6 @@ uvicorn server:app --reload
 | `GET /distant?word=孤独&topn=8` | 遠い単語を返す |
 | `GET /similarity?word1=霧&word2=煙` | 2単語の類似度を返す |
 | `GET /prompt?pivot=孤独&near=静寂,余白&far=賑わい,祭り&mode=combo` | Claude APIでプロンプトを生成する |
+| `GET /analyze?text=霧の中に孤独が佇む` | テキストを形態素解析して単語リストを返す |
 
-`mode` は `near`・`far`・`combo` の3種類。
+`/prompt` の `mode` は `near`・`far`・`combo` の3種類。

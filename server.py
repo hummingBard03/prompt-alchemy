@@ -13,7 +13,7 @@ client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"])
 
-model = KeyedVectors.load("chive-1.3-mc90.kv")
+model = KeyedVectors.load(os.environ["MODEL_PATH"])
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 tagger = fugashi.Tagger()
@@ -52,13 +52,13 @@ def generate_prompt(pivot: str, near: str, far: str, mode: str = "combo"):
         max_tokens=1000,
         messages=[{
             "role": "user",
-            "content": f"""画像生成AIのプロンプトを日本語で3つ作ってください。
+            "content": f"""画像生成AIのプロンプトを日本語で1つ作ってください。
 
 {instructions[mode]}
 
 条件:
 - 情景や雰囲気が浮かぶ詩的な文にする
-- 50文字以内
+- 500文字以内
 - プロンプト文だけ返す。説明や前置きは不要"""
         }]
     )
