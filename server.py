@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import anthropic
 import fugashi
 from pydantic import BaseModel
+import random
 
 class PromptRequest(BaseModel):
     pivot: str
@@ -31,13 +32,17 @@ tagger = fugashi.Tagger()
 def similar(word: str, topn: int = 10):
     if word not in model:
         return {"error": "単語が見つかりません"}
-    return {"results": model.most_similar(word, topn=topn)}
+    raw = model.most_similar(word, topn=topn * 3)
+    random.shuffle(raw)
+    return {"results": raw[:topn]}
 
 @app.get("/distant")
 def distant(word: str, topn: int = 10):
     if word not in model:
         return {"error": "単語が見つかりません"}
-    return {"results": model.most_similar(negative=[word], topn=topn)}
+    raw = model.most_similar(negative=[word], topn=topn * 3)
+    random.shuffle(raw)
+    return {"results": raw[:topn]}
 
 @app.get("/similarity")
 def similarity(word1: str, word2: str):
