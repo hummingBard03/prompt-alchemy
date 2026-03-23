@@ -5,6 +5,7 @@ let currentNear = [];
 let currentFar  = [];
 let history = [];
 let lastPromptIdx = {};
+let keywords = [];
 
 // ── Server check ──
 async function checkServer() {
@@ -83,6 +84,7 @@ async function genPrompt(mode) {
   const p = currentWord;
   const n = shuffle(currentNear).slice(0, randomInt(3, currentNear.length));
   const f = shuffle(currentFar).slice(0, randomInt(3, currentFar.length));
+  const style = document.getElementById('styleSelect').value;
 
   const elId = mode === 'near'  ? 'nearPrompt'
              : mode === 'far'   ? 'farPrompt'
@@ -95,7 +97,7 @@ async function genPrompt(mode) {
     const res = await fetch(`${API}/prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pivot: p, near: n, far: f, mode }),
+      body: JSON.stringify({ pivot: p, near: n, far: f, mode, style, keywords }),
     });
     const data = await res.json();
     el.textContent = data.prompt;
@@ -201,9 +203,33 @@ function addAnalyzedWords(words) {
   ).join('');
 }
 
+// ── Keywords ──
+function addKeyword() {
+  const input = document.getElementById('keywordInput');
+  const word = input.value.trim();
+  if (!word || keywords.includes(word)) { input.value = ''; return; }
+  keywords.push(word);
+  input.value = '';
+  renderKeywords();
+}
+
+function removeKeyword(word) {
+  keywords = keywords.filter(k => k !== word);
+  renderKeywords();
+}
+
+function renderKeywords() {
+  document.getElementById('keywordsChips').innerHTML = keywords.map(w =>
+    `<span class="kchip">${w}<span class="kchip-remove" onclick="removeKeyword('${w}')">✕</span></span>`
+  ).join('');
+}
+
 // ── Init ──
 document.getElementById('wordInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') search();
+});
+document.getElementById('keywordInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addKeyword();
 });
 
 checkServer();

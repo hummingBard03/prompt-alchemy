@@ -32,6 +32,55 @@
                oninput="document.getElementById('topnVal').textContent=this.value">
         <span class="topn-val" id="topnVal">8</span>
       </div>
+      <div class="style-row">
+        <span class="style-label">スタイル</span>
+        <select id="styleSelect">
+          <option value="">なし</option>
+          <optgroup label="── 絵画技法">
+          <option value="水彩画">水彩画</option>
+          <option value="油絵">油絵</option>
+          <option value="水墨画">水墨画</option>
+          <option value="パステル画">パステル画</option>
+          <option value="版画・木版画">版画 / 木版画</option>
+          <option value="エッチング（銅版画）">エッチング</option>
+          <option value="フレスコ画">フレスコ画</option>
+          <option value="テンペラ画">テンペラ画</option>
+          </optgroup>
+          <optgroup label="── 美術様式">
+          <option value="印象派絵画">印象派</option>
+          <option value="表現主義絵画">表現主義</option>
+          <option value="シュルレアリスム絵画">シュルレアリスム</option>
+          <option value="キュビスム絵画">キュビスム</option>
+          <option value="アール・ヌーヴォー">アール・ヌーヴォー</option>
+          <option value="ポップアート">ポップアート</option>
+          <option value="浮世絵">浮世絵</option>
+          <option value="ステンドグラス">ステンドグラス</option>
+          </optgroup>
+          <optgroup label="── 写真">
+          <option value="写実的な写真">写実的な写真</option>
+          <option value="フィルム写真（粒状感あり）">フィルム写真</option>
+          <option value="モノクロ写真">モノクロ写真</option>
+          <option value="長時間露光写真">長時間露光</option>
+          <option value="マクロ写真">マクロ写真</option>
+          <option value="航空写真（俯瞰）">航空写真 / 俯瞰</option>
+          <option value="ローキー照明の写真">ローキー照明</option>
+          <option value="ハイキー照明の写真">ハイキー照明</option>
+          </optgroup>
+          <optgroup label="── その他">
+          <option value="アニメ調イラスト">アニメ調</option>
+          <option value="サイバーパンク">サイバーパンク</option>
+          <option value="ドット絵">ドット絵</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="keywords-row">
+        <div class="keywords-label">// キーワード指定</div>
+        <div class="keywords-input-wrap">
+          <input type="text" id="keywordInput" placeholder="例: 月、廃墟、静寂" autocomplete="off">
+          <button class="btn-ghost btn-sm" onclick="addKeyword()">追加</button>
+        </div>
+        <div class="keywords-chips" id="keywordsChips"></div>
+      </div>
     </div>
 
     <div class="analyze-wrap">
