@@ -73,6 +73,14 @@
           </optgroup>
         </select>
       </div>
+      <div class="keywords-row">
+        <div class="keywords-label">// キーワード指定</div>
+        <div class="keywords-input-wrap">
+          <input type="text" id="keywordInput" placeholder="例: 月、廃墟、静寂" autocomplete="off">
+          <button class="btn-ghost btn-sm" onclick="addKeyword()">追加</button>
+        </div>
+        <div class="keywords-chips" id="keywordsChips"></div>
+      </div>
     </div>
 
     <div class="analyze-wrap">

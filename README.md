@@ -70,12 +70,14 @@ uvicorn server:app --reload
   "near": ["静寂", "余白"],
   "far": ["賑わい", "祭り"],
   "mode": "combo",
-  "style": "水彩画"
+  "style": "水彩画",
+  "keywords": ["月", "廃墟"]
 }
 ```
 
 - `mode`: `near`・`far`・`combo` の3種類
 - `style`: 画風の指定（省略可）。例: `油絵`、`印象派絵画`、`フィルム写真` など
+- `keywords`: プロンプトに必ず含める単語リスト（省略可）
 
 ### POST /analyze
 
