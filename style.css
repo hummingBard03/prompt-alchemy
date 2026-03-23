@@ -133,6 +133,33 @@ input[type=range] {
 }
 .topn-val { color: var(--text); min-width: 1.5rem; }
 
+/* style selector */
+.style-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
+  font-size: 0.52rem;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+}
+.style-label { white-space: nowrap; }
+select#styleSelect {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--borderc);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 0.52rem;
+  letter-spacing: 0.1em;
+  padding: 0.28rem 0.5rem;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+select#styleSelect:focus { border-color: var(--gold); }
+
 /* analyze */
 .analyze-wrap {
   flex: 1;

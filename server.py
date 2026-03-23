@@ -14,6 +14,7 @@ class PromptRequest(BaseModel):
     near: list[str]
     far: list[str]
     mode: str = "combo"
+    style: str = ""
 
 class AnalyzeRequest(BaseModel):
     text: str
@@ -68,6 +69,7 @@ def generate_prompt(req: PromptRequest):
 
 条件:
 - 情景や雰囲気が浮かぶ詩的な文にする
+{"- スタイル指定: " + req.style + "の画風で表現する" if req.style else ""}
 - 500文字以内
 - プロンプト文だけ返す。説明や前置きは不要"""
         }]
