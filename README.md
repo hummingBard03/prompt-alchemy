@@ -54,12 +54,31 @@ uvicorn server:app --reload
 
 ## API
 
-| エンドポイント | 説明 |
-|---|---|
-| `GET /similar?word=孤独&topn=8` | 近い単語を返す |
-| `GET /distant?word=孤独&topn=8` | 遠い単語を返す |
-| `GET /similarity?word1=霧&word2=煙` | 2単語の類似度を返す |
-| `GET /prompt?pivot=孤独&near=静寂,余白&far=賑わい,祭り&mode=combo` | Claude APIでプロンプトを生成する |
-| `GET /analyze?text=霧の中に孤独が佇む` | テキストを形態素解析して単語リストを返す |
+| メソッド | エンドポイント | 説明 |
+|---|---|---|
+| GET | `/similar?word=孤独&topn=8` | 近い単語を返す |
+| GET | `/distant?word=孤独&topn=8` | 遠い単語を返す |
+| GET | `/similarity?word1=霧&word2=煙` | 2単語の類似度を返す |
+| POST | `/prompt` | Claude API でプロンプトを生成する |
+| POST | `/analyze` | テキストを形態素解析して単語リストを返す |
 
-`/prompt` の `mode` は `near`・`far`・`combo` の3種類。
+### POST /prompt
+
+```json
+{
+  "pivot": "孤独",
+  "near": ["静寂", "余白"],
+  "far": ["賑わい", "祭り"],
+  "mode": "combo",
+  "style": "水彩画"
+}
+```
+
+- `mode`: `near`・`far`・`combo` の3種類
+- `style`: 画風の指定（省略可）。例: `油絵`、`印象派絵画`、`フィルム写真` など
+
+### POST /analyze
+
+```json
+{ "text": "霧の中に孤独が佇む" }
+```
