@@ -206,41 +206,29 @@ function addAnalyzedWords(words) {
 }
 
 // ── Arithmetic ──
-function addArithPos() {
-  const input = document.getElementById('arithPosInput');
+function addArith(side) {
+  const arr = side === 'pos' ? arithPos : arithNeg;
+  const input = document.getElementById(side === 'pos' ? 'arithPosInput' : 'arithNegInput');
   const word = input.value.trim();
-  if (!word || arithPos.includes(word)) { input.value = ''; return; }
-  arithPos.push(word);
+  if (!word || arr.includes(word)) { input.value = ''; return; }
+  arr.push(word);
   input.value = '';
   renderArith();
 }
 
-function addArithNeg() {
-  const input = document.getElementById('arithNegInput');
-  const word = input.value.trim();
-  if (!word || arithNeg.includes(word)) { input.value = ''; return; }
-  arithNeg.push(word);
-  input.value = '';
-  renderArith();
-}
-
-function removeArithPos(word) {
-  arithPos = arithPos.filter(w => w !== word);
-  renderArith();
-}
-
-function removeArithNeg(word) {
-  arithNeg = arithNeg.filter(w => w !== word);
+function removeArith(side, word) {
+  if (side === 'pos') arithPos = arithPos.filter(w => w !== word);
+  else                arithNeg = arithNeg.filter(w => w !== word);
   renderArith();
 }
 
 function renderArith() {
   document.getElementById('arithPosChips').innerHTML = arithPos.map(w =>
-    `<span class="kchip">${w}<span class="kchip-remove" onclick="removeArithPos('${w}')">✕</span></span>`
+    `<span class="kchip">${w}<span class="kchip-remove" onclick="removeArith('pos','${w}')">✕</span></span>`
   ).join('');
 
   document.getElementById('arithNegChips').innerHTML = arithNeg.map(w =>
-    `<span class="kchip" style="border-color:var(--pink);background:#c8708214;color:var(--pink)">${w}<span class="kchip-remove" onclick="removeArithNeg('${w}')">✕</span></span>`
+    `<span class="kchip kchip-neg">${w}<span class="kchip-remove" onclick="removeArith('neg','${w}')">✕</span></span>`
   ).join('');
 
   const posParts = arithPos.map((w, i) => (i === 0 ? w : `＋${w}`));
@@ -266,7 +254,7 @@ async function doArithmetic() {
     const data = await res.json();
     if (data.error) {
       document.getElementById('arithResults').innerHTML =
-        `<span style="font-size:0.65rem;color:var(--pink)">${data.error}</span>`;
+        `<span class="arith-error">${data.error}</span>`;
     } else {
       document.getElementById('arithResults').innerHTML = data.results.map(([w, score], i) =>
         `<span class="rchip rchip-arith" onclick="searchWord('${w}')" title="${(score*100).toFixed(1)}%"
@@ -275,7 +263,7 @@ async function doArithmetic() {
     }
   } catch(e) {
     document.getElementById('arithResults').innerHTML =
-      `<span style="font-size:0.65rem;color:var(--pink)">エラーが発生しました</span>`;
+      `<span class="arith-error">エラーが発生しました</span>`;
   }
 
   btn.disabled = false;
@@ -311,10 +299,10 @@ document.getElementById('keywordInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') addKeyword();
 });
 document.getElementById('arithPosInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addArithPos();
+  if (e.key === 'Enter') addArith('pos');
 });
 document.getElementById('arithNegInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addArithNeg();
+  if (e.key === 'Enter') addArith('neg');
 });
 
 checkServer();
