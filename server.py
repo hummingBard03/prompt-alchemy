@@ -20,6 +20,11 @@ class PromptRequest(BaseModel):
 class AnalyzeRequest(BaseModel):
     text: str
 
+class ArithmeticRequest(BaseModel):
+    positive: list[str] = []
+    negative: list[str] = []
+    topn: int = 8
+
 load_dotenv()
 
 app = FastAPI()
@@ -77,6 +82,19 @@ def generate_prompt(req: PromptRequest):
         }]
     )
     return {"prompt": message.content[0].text}
+
+@app.post("/arithmetic")
+def arithmetic(req: ArithmeticRequest):
+    if not req.positive and not req.negative:
+        return {"error": "単語を入力してください"}
+    for w in req.positive + req.negative:
+        if w not in model:
+            return {"error": f"「{w}」が見つかりません"}
+    raw = model.most_similar(positive=req.positive or None, negative=req.negative or None, topn=req.topn * 3)
+    exclude = set(req.positive + req.negative)
+    filtered = [(w, s) for w, s in raw if w not in exclude]
+    random.shuffle(filtered)
+    return {"results": filtered[:req.topn]}
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):

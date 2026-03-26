@@ -6,6 +6,8 @@ let currentFar  = [];
 let history = [];
 let lastPromptIdx = {};
 let keywords = [];
+let arithPos = [];
+let arithNeg = [];
 
 // ── Server check ──
 async function checkServer() {
@@ -203,6 +205,83 @@ function addAnalyzedWords(words) {
   ).join('');
 }
 
+// ── Arithmetic ──
+function addArithPos() {
+  const input = document.getElementById('arithPosInput');
+  const word = input.value.trim();
+  if (!word || arithPos.includes(word)) { input.value = ''; return; }
+  arithPos.push(word);
+  input.value = '';
+  renderArith();
+}
+
+function addArithNeg() {
+  const input = document.getElementById('arithNegInput');
+  const word = input.value.trim();
+  if (!word || arithNeg.includes(word)) { input.value = ''; return; }
+  arithNeg.push(word);
+  input.value = '';
+  renderArith();
+}
+
+function removeArithPos(word) {
+  arithPos = arithPos.filter(w => w !== word);
+  renderArith();
+}
+
+function removeArithNeg(word) {
+  arithNeg = arithNeg.filter(w => w !== word);
+  renderArith();
+}
+
+function renderArith() {
+  document.getElementById('arithPosChips').innerHTML = arithPos.map(w =>
+    `<span class="kchip">${w}<span class="kchip-remove" onclick="removeArithPos('${w}')">✕</span></span>`
+  ).join('');
+
+  document.getElementById('arithNegChips').innerHTML = arithNeg.map(w =>
+    `<span class="kchip" style="border-color:var(--pink);background:#c8708214;color:var(--pink)">${w}<span class="kchip-remove" onclick="removeArithNeg('${w}')">✕</span></span>`
+  ).join('');
+
+  const posParts = arithPos.map((w, i) => (i === 0 ? w : `＋${w}`));
+  const negParts = arithNeg.map(w => `－${w}`);
+  const all = [...posParts, ...negParts];
+  document.getElementById('arithFormula').textContent = all.length ? all.join(' ') + ' ＝ ？' : '';
+}
+
+async function doArithmetic() {
+  if (arithPos.length === 0 && arithNeg.length === 0) return;
+  const btn = document.getElementById('arithBtn');
+  btn.disabled = true;
+  btn.textContent = '...';
+  document.getElementById('arithResults').innerHTML = '';
+
+  try {
+    const topn = parseInt(document.getElementById('topnSlider').value);
+    const res = await fetch(`${API}/arithmetic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ positive: arithPos, negative: arithNeg, topn }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      document.getElementById('arithResults').innerHTML =
+        `<span style="font-size:0.65rem;color:var(--pink)">${data.error}</span>`;
+    } else {
+      document.getElementById('arithResults').innerHTML = data.results.map(([w, score], i) =>
+        `<span class="rchip rchip-arith" onclick="searchWord('${w}')" title="${(score*100).toFixed(1)}%"
+               style="animation-delay:${i*0.04}s">${w}</span>`
+      ).join('');
+    }
+  } catch(e) {
+    document.getElementById('arithResults').innerHTML =
+      `<span style="font-size:0.65rem;color:var(--pink)">エラーが発生しました</span>`;
+  }
+
+  btn.disabled = false;
+  btn.textContent = '演算する';
+}
+
 // ── Keywords ──
 function addKeyword() {
   const input = document.getElementById('keywordInput');
@@ -230,6 +309,12 @@ document.getElementById('wordInput').addEventListener('keydown', e => {
 });
 document.getElementById('keywordInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') addKeyword();
+});
+document.getElementById('arithPosInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addArithPos();
+});
+document.getElementById('arithNegInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addArithNeg();
 });
 
 checkServer();

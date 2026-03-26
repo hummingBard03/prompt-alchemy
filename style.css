@@ -192,6 +192,30 @@ select#styleSelect:focus { border-color: var(--gold); }
 }
 .kchip-remove:hover { color: var(--pink); }
 
+/* arithmetic */
+.arith-wrap {
+  padding: 0.8rem 1.4rem;
+  border-bottom: 1px solid var(--borderc);
+}
+.arith-label { font-size:0.5rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); margin-bottom:0.55rem; }
+.arith-row { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.3rem; }
+.arith-sign { font-family:'DM Mono',monospace; font-size:0.85rem; width:1.1rem; text-align:center; flex-shrink:0; }
+.arith-plus  { color:var(--green); }
+.arith-minus { color:var(--pink); }
+.arith-chips { display:flex; flex-wrap:wrap; gap:0.3rem; padding-left:1.5rem; min-height:0; margin-bottom:0.3rem; }
+.arith-formula {
+  font-family: 'Noto Serif JP', serif;
+  font-size: 0.78rem;
+  color: var(--dim);
+  text-align: center;
+  margin: 0.35rem 0;
+  min-height: 1.1rem;
+  letter-spacing: 0.08em;
+}
+.arith-btn { width:100%; margin-bottom:0.45rem; }
+.arith-results { display:flex; flex-wrap:wrap; gap:0.3rem; min-height:0; }
+.rchip-arith { background:#7190c812; border:1px solid var(--blue); color:var(--blue); }
+
 /* analyze */
 .analyze-wrap {
   flex: 1;
