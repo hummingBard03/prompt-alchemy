@@ -1,6 +1,6 @@
 # 錬語術 — Prompt Alchemy
 
-Word2Vec を使って単語の「近い・遠い」を探索し、Claude API で画像生成プロンプトを生成するツール。生成されたプロンプトを形態素解析にかけて新しい単語を抽出する機能も持つ。
+Word2Vec を使って単語の「近い・遠い」を探索し、Claude API で画像生成プロンプトを生成するツール。ベクトル演算による単語の合成・減算や、生成されたプロンプトの形態素解析にも対応する。
 
 ## 構成
 
@@ -60,6 +60,7 @@ uvicorn server:app --reload
 | GET | `/distant?word=孤独&topn=8` | 遠い単語を返す |
 | GET | `/similarity?word1=霧&word2=煙` | 2単語の類似度を返す |
 | POST | `/prompt` | Claude API でプロンプトを生成する |
+| POST | `/arithmetic` | ベクトル演算で近い単語を返す |
 | POST | `/analyze` | テキストを形態素解析して単語リストを返す |
 
 ### POST /prompt
@@ -78,6 +79,20 @@ uvicorn server:app --reload
 - `mode`: `near`・`far`・`combo` の3種類
 - `style`: 画風の指定（省略可）。例: `油絵`、`印象派絵画`、`フィルム写真` など
 - `keywords`: プロンプトに必ず含める単語リスト（省略可）
+
+### POST /arithmetic
+
+```json
+{
+  "positive": ["海", "光"],
+  "negative": ["暗闇"],
+  "topn": 8
+}
+```
+
+- `positive`: 加算する単語リスト
+- `negative`: 減算する単語リスト（省略可）
+- 入力単語は結果から除外される
 
 ### POST /analyze
 

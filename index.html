@@ -83,6 +83,25 @@
       </div>
     </div>
 
+    <div class="arith-wrap">
+      <div class="arith-label">// ベクトル演算</div>
+      <div class="arith-row">
+        <span class="arith-sign arith-plus">＋</span>
+        <input type="text" id="arithPosInput" placeholder="加算する単語" autocomplete="off">
+        <button class="btn-ghost btn-sm" onclick="addArithPos()">追加</button>
+      </div>
+      <div class="arith-chips" id="arithPosChips"></div>
+      <div class="arith-row">
+        <span class="arith-sign arith-minus">－</span>
+        <input type="text" id="arithNegInput" placeholder="減算する単語" autocomplete="off">
+        <button class="btn-ghost btn-sm" onclick="addArithNeg()">追加</button>
+      </div>
+      <div class="arith-chips" id="arithNegChips"></div>
+      <div class="arith-formula" id="arithFormula"></div>
+      <button class="btn-ghost btn-sm arith-btn" onclick="doArithmetic()" id="arithBtn">演算する</button>
+      <div class="arith-results" id="arithResults"></div>
+    </div>
+
     <div class="analyze-wrap">
       <div class="analyze-label">// プロンプトから抽出</div>
       <div class="analyze-list" id="analyzedSection">
