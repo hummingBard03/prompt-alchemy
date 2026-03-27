@@ -235,6 +235,7 @@ header {
 }
 .search-label { font-size:0.52rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--muted); margin-bottom:0.7rem; }
 .search-box { display: flex; gap: 0.5rem; }
+.random-btn { width:100%; margin-top:0.4rem; }
 
 input[type=text] {
   flex: 1;

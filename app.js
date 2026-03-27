@@ -1,4 +1,4 @@
-const API = 'http://localhost:8000';
+const API = window.location.origin;
 
 let currentWord = '';
 let currentNear = [];
@@ -112,6 +112,22 @@ async function genPrompt(mode) {
   }
 }
 function regenPrompt(mode) { if (currentWord) genPrompt(mode); }
+
+async function randomSearch() {
+  const btn = document.getElementById('randomBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/random`);
+    const data = await res.json();
+    if (data.word) {
+      document.getElementById('wordInput').value = data.word;
+      search();
+    }
+  } catch(e) {
+    console.error('random error:', e);
+  }
+  btn.disabled = false;
+}
 
 function searchWord(word) {
   document.getElementById('wordInput').value = word;

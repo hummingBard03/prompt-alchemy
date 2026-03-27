@@ -8,6 +8,7 @@ import anthropic
 import fugashi
 from pydantic import BaseModel
 import random
+import re
 
 class PromptRequest(BaseModel):
     pivot: str
@@ -40,6 +41,13 @@ model = KeyedVectors.load(os.environ["MODEL_PATH"])
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 tagger = fugashi.Tagger()
+
+_jp = re.compile(r'[\u3040-\u9fff]')
+_random_vocab = [w for w in list(model.key_to_index)[:50000] if len(w) >= 2 and _jp.search(w)]
+
+@app.get("/random")
+def random_word():
+    return {"word": random.choice(_random_vocab)}
 
 @app.get("/similar")
 def similar(word: str, topn: int = 10):
@@ -140,3 +148,7 @@ def analyze(req: AnalyzeRequest):
     return {"words": list(set(words))}
 
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
