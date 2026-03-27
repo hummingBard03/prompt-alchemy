@@ -83,13 +83,17 @@ def similarity(word1: str, word2: str):
 
 @app.post("/prompt")
 def generate_prompt(req: PromptRequest):
-    instructions = {
-        "near":    f"「{req.pivot}」と意味的に近い雰囲気を活かした情景を作ってください。近い単語: {', '.join(req.near)}",
-        "far":     f"「{req.pivot}」と対極にある要素を組み合わせた意外な情景を作ってください。対極の単語: {', '.join(req.far)}",
-        "combo":   f"「{req.pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {', '.join(req.near)} / 遠い: {', '.join(req.far)}",
-        "journey": f"「{req.path[0]}」から「{req.path[-1]}」へと意味が移ろう情景を作ってください。経路の単語を情景の変化として使ってください。経路: {' → '.join(req.path)}",
-    }
-    if req.mode not in instructions:
+    if req.mode == "journey":
+        if not req.path:
+            return {"error": "journey モードには path が必要です"}
+        instruction = f"「{req.path[0]}」から「{req.path[-1]}」へと意味が移ろう情景を作ってください。経路の単語を情景の変化として使ってください。経路: {' → '.join(req.path)}"
+    elif req.mode == "near":
+        instruction = f"「{req.pivot}」と意味的に近い雰囲気を活かした情景を作ってください。近い単語: {', '.join(req.near)}"
+    elif req.mode == "far":
+        instruction = f"「{req.pivot}」と対極にある要素を組み合わせた意外な情景を作ってください。対極の単語: {', '.join(req.far)}"
+    elif req.mode == "combo":
+        instruction = f"「{req.pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {', '.join(req.near)} / 遠い: {', '.join(req.far)}"
+    else:
         return {"error": f"不明なモードです: {req.mode}"}
     try:
         message = client.messages.create(
@@ -99,7 +103,7 @@ def generate_prompt(req: PromptRequest):
                 "role": "user",
                 "content": f"""画像生成AIのプロンプトを日本語で1つ作ってください。
 
-{instructions[req.mode]}
+{instruction}
 
 条件:
 - 情景や雰囲気が浮かぶ詩的な文にする
