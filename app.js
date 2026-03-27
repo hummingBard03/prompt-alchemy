@@ -8,6 +8,7 @@ let lastPromptIdx = {};
 let keywords = [];
 let arithPos = [];
 let arithNeg = [];
+let journeyPath = [];
 
 // ── Server check ──
 async function checkServer() {
@@ -114,6 +115,8 @@ function regenPrompt(mode) { if (currentWord) genPrompt(mode); }
 
 function searchWord(word) {
   document.getElementById('wordInput').value = word;
+  const searchBtn = document.querySelector('.main-tab-btn[data-tab="searchTab"]');
+  if (searchBtn && !searchBtn.classList.contains('active')) switchMainTab(searchBtn);
   search();
 }
 
@@ -291,6 +294,99 @@ function renderKeywords() {
   ).join('');
 }
 
+// ── Journey ──
+async function runJourney() {
+  const start = document.getElementById('journeyStart').value.trim();
+  const end   = document.getElementById('journeyEnd').value.trim();
+  if (!start || !end) return;
+
+  const btn = document.getElementById('journeyBtn');
+  btn.disabled = true;
+  btn.textContent = '...';
+
+  try {
+    const steps = parseInt(document.getElementById('stepsSlider').value);
+    const res = await fetch(`${API}/journey`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start, end, steps }),
+    });
+    const data = await res.json();
+    if (data.error) {
+      renderJourneyError(data.error);
+    } else {
+      journeyPath = data.path;
+      renderJourneyPath(data.path);
+    }
+  } catch(e) {
+    renderJourneyError('サーバーに接続できません');
+  }
+
+  btn.disabled = false;
+  btn.textContent = '探索する';
+}
+
+function renderJourneyPath(path) {
+  document.getElementById('journeyInitMsg').style.display = 'none';
+  document.getElementById('journeyArea').style.display = 'block';
+  document.getElementById('journeyPrompt').textContent = '';
+
+  document.getElementById('journeyPathDisplay').innerHTML = path.map((w, i) => {
+    const cls = i === 0 ? 'rchip rchip-near' : i === path.length - 1 ? 'rchip rchip-far' : 'rchip rchip-arith';
+    const arrow = i < path.length - 1 ? '<span class="journey-arrow">→</span>' : '';
+    return `<span class="${cls}" onclick="searchWord('${w}')" style="animation-delay:${i*0.06}s">${w}</span>${arrow}`;
+  }).join('');
+}
+
+function renderJourneyError(msg) {
+  document.getElementById('journeyInitMsg').style.display = 'none';
+  document.getElementById('journeyArea').style.display = 'block';
+  document.getElementById('journeyPathDisplay').innerHTML =
+    `<span class="arith-error">${msg}</span>`;
+}
+
+async function genJourneyPrompt() {
+  if (!journeyPath.length) return;
+  const el = document.getElementById('journeyPrompt');
+  el.textContent = '生成中…';
+
+  try {
+    const style = document.getElementById('styleSelect').value;
+    const res = await fetch(`${API}/prompt`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pivot: journeyPath[0], near: [], far: [],
+        mode: 'journey', style, keywords, path: journeyPath,
+      }),
+    });
+    const data = await res.json();
+    el.textContent = data.prompt;
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+  } catch(e) {
+    el.textContent = 'エラーが発生しました';
+  }
+}
+
+// ── Tabs ──
+function switchMainTab(btn) {
+  document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.main-tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+}
+
+function switchTab(btn, groupId) {
+  const group = document.getElementById(groupId);
+  const tabId = btn.dataset.tab;
+  group.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  group.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
 // ── Init ──
 document.getElementById('wordInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') search();
@@ -303,6 +399,12 @@ document.getElementById('arithPosInput').addEventListener('keydown', e => {
 });
 document.getElementById('arithNegInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') addArith('neg');
+});
+document.getElementById('journeyStart').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('journeyEnd').focus();
+});
+document.getElementById('journeyEnd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') runJourney();
 });
 
 checkServer();

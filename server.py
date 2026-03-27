@@ -16,6 +16,12 @@ class PromptRequest(BaseModel):
     mode: str = "combo"
     style: str = ""
     keywords: list[str] = []
+    path: list[str] = []
+
+class JourneyRequest(BaseModel):
+    start: str
+    end: str
+    steps: int = 4
 
 class AnalyzeRequest(BaseModel):
     text: str
@@ -28,7 +34,7 @@ class ArithmeticRequest(BaseModel):
 load_dotenv()
 
 app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 model = KeyedVectors.load(os.environ["MODEL_PATH"])
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
@@ -60,9 +66,10 @@ def similarity(word1: str, word2: str):
 @app.post("/prompt")
 def generate_prompt(req: PromptRequest):
     instructions = {
-        "near": f"「{req.pivot}」と意味的に近い雰囲気を活かした情景を作ってください。近い単語: {', '.join(req.near)}",
-        "far":  f"「{req.pivot}」と対極にある要素を組み合わせた意外な情景を作ってください。対極の単語: {', '.join(req.far)}",
-        "combo": f"「{req.pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {', '.join(req.near)} / 遠い: {', '.join(req.far)}",
+        "near":    f"「{req.pivot}」と意味的に近い雰囲気を活かした情景を作ってください。近い単語: {', '.join(req.near)}",
+        "far":     f"「{req.pivot}」と対極にある要素を組み合わせた意外な情景を作ってください。対極の単語: {', '.join(req.far)}",
+        "combo":   f"「{req.pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {', '.join(req.near)} / 遠い: {', '.join(req.far)}",
+        "journey": f"「{req.path[0]}」から「{req.path[-1]}」へと意味が移ろう情景を作ってください。経路の単語を情景の変化として使ってください。経路: {' → '.join(req.path)}",
     }
     message = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -95,6 +102,32 @@ def arithmetic(req: ArithmeticRequest):
     filtered = [(w, s) for w, s in raw if w not in exclude]
     random.shuffle(filtered)
     return {"results": filtered[:req.topn]}
+
+@app.post("/journey")
+def journey(req: JourneyRequest):
+    if req.start not in model:
+        return {"error": f"「{req.start}」が見つかりません"}
+    if req.end not in model:
+        return {"error": f"「{req.end}」が見つかりません"}
+    if req.start == req.end:
+        return {"error": "起点と終点が同じ単語です"}
+
+    start_vec = model[req.start]
+    end_vec   = model[req.end]
+    visited = {req.start, req.end}
+    path = [req.start]
+
+    for i in range(1, req.steps + 1):
+        t = i / (req.steps + 1)
+        interp = (1.0 - t) * start_vec + t * end_vec
+        for word, _ in model.similar_by_vector(interp, topn=30):
+            if word not in visited:
+                path.append(word)
+                visited.add(word)
+                break
+
+    path.append(req.end)
+    return {"path": path}
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
