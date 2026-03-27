@@ -18,167 +18,296 @@
   </div>
 </header>
 
-<div class="main">
-  <div class="left">
-    <div class="search-area">
-      <div class="search-label">単語を入力</div>
-      <div class="search-box">
-        <input type="text" id="wordInput" placeholder="霧、孤独、廃墟…" autocomplete="off">
-        <button class="btn-gold" onclick="search()" id="searchBtn">展開</button>
-      </div>
-      <div class="topn-row">
-        表示数
-        <input type="range" id="topnSlider" min="3" max="20" value="8"
-               oninput="document.getElementById('topnVal').textContent=this.value">
-        <span class="topn-val" id="topnVal">8</span>
-      </div>
-      <div class="style-row">
-        <span class="style-label">スタイル</span>
-        <select id="styleSelect">
-          <option value="">なし</option>
-          <optgroup label="── 絵画技法">
-          <option value="水彩画">水彩画</option>
-          <option value="油絵">油絵</option>
-          <option value="水墨画">水墨画</option>
-          <option value="パステル画">パステル画</option>
-          <option value="版画・木版画">版画 / 木版画</option>
-          <option value="エッチング（銅版画）">エッチング</option>
-          <option value="フレスコ画">フレスコ画</option>
-          <option value="テンペラ画">テンペラ画</option>
-          </optgroup>
-          <optgroup label="── 美術様式">
-          <option value="印象派絵画">印象派</option>
-          <option value="表現主義絵画">表現主義</option>
-          <option value="シュルレアリスム絵画">シュルレアリスム</option>
-          <option value="キュビスム絵画">キュビスム</option>
-          <option value="アール・ヌーヴォー">アール・ヌーヴォー</option>
-          <option value="ポップアート">ポップアート</option>
-          <option value="浮世絵">浮世絵</option>
-          <option value="ステンドグラス">ステンドグラス</option>
-          </optgroup>
-          <optgroup label="── 写真">
-          <option value="写実的な写真">写実的な写真</option>
-          <option value="フィルム写真（粒状感あり）">フィルム写真</option>
-          <option value="モノクロ写真">モノクロ写真</option>
-          <option value="長時間露光写真">長時間露光</option>
-          <option value="マクロ写真">マクロ写真</option>
-          <option value="航空写真（俯瞰）">航空写真 / 俯瞰</option>
-          <option value="ローキー照明の写真">ローキー照明</option>
-          <option value="ハイキー照明の写真">ハイキー照明</option>
-          </optgroup>
-          <optgroup label="── その他">
-          <option value="アニメ調イラスト">アニメ調</option>
-          <option value="サイバーパンク">サイバーパンク</option>
-          <option value="ドット絵">ドット絵</option>
-          </optgroup>
-        </select>
-      </div>
-      <div class="keywords-row">
-        <div class="keywords-label">// キーワード指定</div>
-        <div class="keywords-input-wrap">
-          <input type="text" id="keywordInput" placeholder="例: 月、廃墟、静寂" autocomplete="off">
-          <button class="btn-ghost btn-sm" onclick="addKeyword()">追加</button>
+<div class="main-wrapper">
+  <div class="main-tab-bar">
+    <div class="main-tab-btn active" data-tab="searchTab" onclick="switchMainTab(this)">検索</div>
+    <div class="main-tab-btn" data-tab="arithTab" onclick="switchMainTab(this)">ベクトル演算</div>
+    <div class="main-tab-btn" data-tab="journeyTab" onclick="switchMainTab(this)">連想チェーン</div>
+    <div class="main-tab-btn" data-tab="expandTab" onclick="switchMainTab(this)">文章展開</div>
+  </div>
+
+  <!-- ── 検索タブ ── -->
+  <div class="main-tab-pane active" id="searchTab">
+    <div class="main">
+      <div class="left">
+        <div class="search-area">
+          <div class="search-label">単語を入力</div>
+          <div class="search-box">
+            <input type="text" id="wordInput" placeholder="霧、孤独、廃墟…" autocomplete="off">
+            <button class="btn-gold" onclick="search()" id="searchBtn">展開</button>
+          </div>
+          <button class="btn-ghost btn-sm random-btn" onclick="randomSearch()" id="randomBtn">◈ ランダム起点</button>
+          <div class="topn-row">
+            表示数
+            <input type="range" id="topnSlider" min="3" max="20" value="8"
+                   oninput="document.getElementById('topnVal').textContent=this.value">
+            <span class="topn-val" id="topnVal">8</span>
+          </div>
+          <div class="style-row">
+            <span class="style-label">スタイル</span>
+            <select id="styleSelect">
+              <option value="">なし</option>
+              <optgroup label="── 絵画技法">
+              <option value="水彩画">水彩画</option>
+              <option value="油絵">油絵</option>
+              <option value="水墨画">水墨画</option>
+              <option value="パステル画">パステル画</option>
+              <option value="版画・木版画">版画 / 木版画</option>
+              <option value="エッチング（銅版画）">エッチング</option>
+              <option value="フレスコ画">フレスコ画</option>
+              <option value="テンペラ画">テンペラ画</option>
+              </optgroup>
+              <optgroup label="── 美術様式">
+              <option value="印象派絵画">印象派</option>
+              <option value="表現主義絵画">表現主義</option>
+              <option value="シュルレアリスム絵画">シュルレアリスム</option>
+              <option value="キュビスム絵画">キュビスム</option>
+              <option value="アール・ヌーヴォー">アール・ヌーヴォー</option>
+              <option value="ポップアート">ポップアート</option>
+              <option value="浮世絵">浮世絵</option>
+              <option value="ステンドグラス">ステンドグラス</option>
+              </optgroup>
+              <optgroup label="── 写真">
+              <option value="写実的な写真">写実的な写真</option>
+              <option value="フィルム写真（粒状感あり）">フィルム写真</option>
+              <option value="モノクロ写真">モノクロ写真</option>
+              <option value="長時間露光写真">長時間露光</option>
+              <option value="マクロ写真">マクロ写真</option>
+              <option value="航空写真（俯瞰）">航空写真 / 俯瞰</option>
+              <option value="ローキー照明の写真">ローキー照明</option>
+              <option value="ハイキー照明の写真">ハイキー照明</option>
+              </optgroup>
+              <optgroup label="── その他">
+              <option value="アニメ調イラスト">アニメ調</option>
+              <option value="サイバーパンク">サイバーパンク</option>
+              <option value="ドット絵">ドット絵</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="keywords-row">
+            <div class="keywords-label">// キーワード指定</div>
+            <div class="keywords-input-wrap">
+              <input type="text" id="keywordInput" placeholder="例: 月、廃墟、静寂" autocomplete="off">
+              <button class="btn-ghost btn-sm" onclick="addKeyword()">追加</button>
+            </div>
+            <div class="keywords-chips" id="keywordsChips"></div>
+          </div>
         </div>
-        <div class="keywords-chips" id="keywordsChips"></div>
-      </div>
-    </div>
 
-    <div class="arith-wrap">
-      <div class="arith-label">// ベクトル演算</div>
-      <div class="arith-row">
-        <span class="arith-sign arith-plus">＋</span>
-        <input type="text" id="arithPosInput" placeholder="加算する単語" autocomplete="off">
-        <button class="btn-ghost btn-sm" onclick="addArithPos()">追加</button>
+        <div class="left-tabs" id="leftTabs">
+          <div class="tab-bar">
+            <div class="tab-btn active" data-tab="historyPane" onclick="switchTab(this, 'leftTabs')">履歴</div>
+            <div class="tab-btn" data-tab="analyzePane" onclick="switchTab(this, 'leftTabs')">抽出ワード</div>
+          </div>
+          <div class="tab-content">
+            <div class="tab-pane active" id="historyPane">
+              <div class="history-list" id="historyList">
+                <span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>
+              </div>
+            </div>
+            <div class="tab-pane" id="analyzePane">
+              <div class="analyze-list" id="analyzedSection">
+                <span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="arith-chips" id="arithPosChips"></div>
-      <div class="arith-row">
-        <span class="arith-sign arith-minus">－</span>
-        <input type="text" id="arithNegInput" placeholder="減算する単語" autocomplete="off">
-        <button class="btn-ghost btn-sm" onclick="addArithNeg()">追加</button>
-      </div>
-      <div class="arith-chips" id="arithNegChips"></div>
-      <div class="arith-formula" id="arithFormula"></div>
-      <button class="btn-ghost btn-sm arith-btn" onclick="doArithmetic()" id="arithBtn">演算する</button>
-      <div class="arith-results" id="arithResults"></div>
-    </div>
 
-    <div class="analyze-wrap">
-      <div class="analyze-label">// プロンプトから抽出</div>
-      <div class="analyze-list" id="analyzedSection">
-        <span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>
-      </div>
-    </div>
+      <div class="right" id="rightPanel">
+        <div class="placeholder" id="placeholder">
+          <div class="big">◈</div>
+          <p>単語を入力して「展開」を押すと<br>Word2Vecで近い・遠い単語が出ます<br><br>チップをクリックするとその単語で再検索</p>
+        </div>
 
-    <div class="history-wrap">
-      <div class="history-label">// 履歴</div>
-      <div class="history-list" id="historyList">
-        <span style="font-size:0.65rem;color:var(--muted)">まだ検索していません</span>
+        <div id="resultArea" style="display:none">
+          <div class="pivot-row">
+            <div class="pivot-word" id="pivotWord"></div>
+            <div class="pivot-hint" id="pivotHint">を展開中</div>
+          </div>
+
+          <hr class="divider">
+
+          <div class="result-section">
+            <div class="section-header">
+              <div class="section-label label-near">▲ 近い単語</div>
+              <button class="btn-ghost btn-sm" onclick="regenPrompt('near')">プロンプト再生成</button>
+            </div>
+            <div class="chips-row" id="nearChips"></div>
+            <div class="prompt-card">
+              <div class="prompt-card-label">// プロンプト候補</div>
+              <div class="prompt-text" id="nearPrompt"></div>
+              <div class="prompt-actions">
+                <button class="btn-ghost btn-sm" onclick="copyText('nearPrompt')">コピー</button>
+                <button class="btn-ghost btn-sm" onclick="analyzePrompt('nearPrompt')">単語を抽出</button>
+              </div>
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <div class="result-section">
+            <div class="section-header">
+              <div class="section-label label-far">▼ 遠い単語（対極）</div>
+              <button class="btn-ghost btn-sm" onclick="regenPrompt('far')">プロンプト再生成</button>
+            </div>
+            <div class="chips-row" id="farChips"></div>
+            <div class="prompt-card">
+              <div class="prompt-card-label">// プロンプト候補</div>
+              <div class="prompt-text" id="farPrompt"></div>
+              <div class="prompt-actions">
+                <button class="btn-ghost btn-sm" onclick="copyText('farPrompt')">コピー</button>
+                <button class="btn-ghost btn-sm" onclick="analyzePrompt('farPrompt')">単語を抽出</button>
+              </div>
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <div class="result-section">
+            <div class="section-header">
+              <div class="section-label label-rand">◆ 組み合わせ</div>
+              <button class="btn-ghost btn-sm" onclick="regenPrompt('combo')">プロンプト再生成</button>
+            </div>
+            <div class="chips-row" id="comboChips"></div>
+            <div class="prompt-card">
+              <div class="prompt-card-label">// 全要素ミックス</div>
+              <div class="prompt-text" id="comboPrompt"></div>
+              <div class="prompt-actions">
+                <button class="btn-ghost btn-sm" onclick="copyText('comboPrompt')">コピー</button>
+                <button class="btn-ghost btn-sm" onclick="analyzePrompt('comboPrompt')">単語を抽出</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="right" id="rightPanel">
-    <div class="placeholder" id="placeholder">
-      <div class="big">◈</div>
-      <p>単語を入力して「展開」を押すと<br>Word2Vecで近い・遠い単語が出ます<br><br>チップをクリックするとその単語で再検索</p>
+  <!-- ── ベクトル演算タブ ── -->
+  <div class="main-tab-pane" id="arithTab">
+    <div class="tool-page">
+      <div class="tool-page-inner">
+        <div class="tool-section">
+          <div class="arith-row">
+            <span class="arith-sign arith-plus">＋</span>
+            <input type="text" id="arithPosInput" placeholder="加算する単語" autocomplete="off">
+            <button class="btn-ghost btn-sm" onclick="addArith('pos')">追加</button>
+          </div>
+          <div class="arith-chips" id="arithPosChips"></div>
+          <div class="arith-row">
+            <span class="arith-sign arith-minus">－</span>
+            <input type="text" id="arithNegInput" placeholder="減算する単語" autocomplete="off">
+            <button class="btn-ghost btn-sm" onclick="addArith('neg')">追加</button>
+          </div>
+          <div class="arith-chips" id="arithNegChips"></div>
+          <div class="arith-formula" id="arithFormula"></div>
+          <button class="btn-ghost btn-sm arith-btn" onclick="doArithmetic()" id="arithBtn">演算する</button>
+        </div>
+        <div class="arith-results" id="arithResults"></div>
+      </div>
     </div>
+  </div>
 
-    <div id="resultArea" style="display:none">
-      <div class="pivot-row">
-        <div class="pivot-word" id="pivotWord"></div>
-        <div class="pivot-hint" id="pivotHint">を展開中</div>
-      </div>
-
-      <hr class="divider">
-
-      <div class="result-section">
-        <div class="section-header">
-          <div class="section-label label-near">▲ 近い単語</div>
-          <button class="btn-ghost btn-sm" onclick="regenPrompt('near')">プロンプト再生成</button>
+  <!-- ── 連想チェーンタブ ── -->
+  <div class="main-tab-pane" id="journeyTab">
+    <div class="tool-page">
+      <div class="tool-page-inner">
+        <div class="tool-section">
+          <div class="journey-inputs">
+            <input type="text" id="journeyStart" placeholder="起点" autocomplete="off">
+            <span class="journey-sep">→</span>
+            <input type="text" id="journeyEnd" placeholder="終点" autocomplete="off">
+          </div>
+          <div class="steps-row">
+            中間語
+            <input type="range" id="stepsSlider" min="2" max="8" value="4"
+                   oninput="document.getElementById('stepsVal').textContent=this.value">
+            <span class="topn-val" id="stepsVal">4</span>
+          </div>
+          <button class="btn-ghost btn-sm journey-btn" onclick="runJourney()" id="journeyBtn">探索する</button>
         </div>
-        <div class="chips-row" id="nearChips"></div>
-        <div class="prompt-card">
-          <div class="prompt-card-label">// プロンプト候補</div>
-          <div class="prompt-text" id="nearPrompt"></div>
-          <div class="prompt-actions">
-            <button class="btn-ghost btn-sm" onclick="copyText('nearPrompt')">コピー</button>
-            <button class="btn-ghost btn-sm" onclick="analyzePrompt('nearPrompt')">単語を抽出</button>
+
+        <div id="journeyInitMsg" class="tool-init-msg">
+          起点と終点を入力して「探索する」を押してください
+        </div>
+
+        <div id="journeyArea" style="display:none">
+          <div class="result-section">
+            <div class="section-header">
+              <div class="section-label label-journey">◈ 連想チェーン</div>
+              <button class="btn-ghost btn-sm" onclick="genJourneyPrompt()">プロンプト生成</button>
+            </div>
+            <div class="journey-path" id="journeyPathDisplay"></div>
+            <div class="prompt-card">
+              <div class="prompt-card-label">// プロンプト候補</div>
+              <div class="prompt-text" id="journeyPrompt"></div>
+              <div class="prompt-actions">
+                <button class="btn-ghost btn-sm" onclick="copyText('journeyPrompt')">コピー</button>
+                <button class="btn-ghost btn-sm" onclick="analyzePrompt('journeyPrompt')">単語を抽出</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
-      <hr class="divider">
-
-      <div class="result-section">
-        <div class="section-header">
-          <div class="section-label label-far">▼ 遠い単語（対極）</div>
-          <button class="btn-ghost btn-sm" onclick="regenPrompt('far')">プロンプト再生成</button>
-        </div>
-        <div class="chips-row" id="farChips"></div>
-        <div class="prompt-card">
-          <div class="prompt-card-label">// プロンプト候補</div>
-          <div class="prompt-text" id="farPrompt"></div>
-          <div class="prompt-actions">
-            <button class="btn-ghost btn-sm" onclick="copyText('farPrompt')">コピー</button>
-            <button class="btn-ghost btn-sm" onclick="analyzePrompt('farPrompt')">単語を抽出</button>
+  <!-- ── 文章展開タブ ── -->
+  <div class="main-tab-pane" id="expandTab">
+    <div class="tool-page">
+      <div class="tool-page-inner">
+        <div class="tool-section">
+          <div class="search-label">文章を貼り付け</div>
+          <textarea id="expandInput" placeholder="詩、小説の一節、メモなど何でも…" rows="5"></textarea>
+          <div class="style-row" style="margin-top:0.5rem">
+            <span class="style-label">スタイル</span>
+            <select id="expandStyleSelect">
+              <option value="">なし</option>
+              <optgroup label="── 絵画技法">
+              <option value="水彩画">水彩画</option>
+              <option value="油絵">油絵</option>
+              <option value="水墨画">水墨画</option>
+              <option value="パステル画">パステル画</option>
+              </optgroup>
+              <optgroup label="── 美術様式">
+              <option value="印象派絵画">印象派</option>
+              <option value="表現主義絵画">表現主義</option>
+              <option value="シュルレアリスム絵画">シュルレアリスム</option>
+              <option value="浮世絵">浮世絵</option>
+              </optgroup>
+              <optgroup label="── 写真">
+              <option value="写実的な写真">写実的な写真</option>
+              <option value="フィルム写真（粒状感あり）">フィルム写真</option>
+              <option value="モノクロ写真">モノクロ写真</option>
+              </optgroup>
+              <optgroup label="── その他">
+              <option value="アニメ調イラスト">アニメ調</option>
+              <option value="サイバーパンク">サイバーパンク</option>
+              <option value="ドット絵">ドット絵</option>
+              </optgroup>
+            </select>
           </div>
+          <button class="btn-ghost btn-sm journey-btn" onclick="runExpand()" id="expandBtn" style="margin-top:0.75rem">展開する</button>
         </div>
-      </div>
 
-      <hr class="divider">
-
-      <div class="result-section">
-        <div class="section-header">
-          <div class="section-label label-rand">◆ 組み合わせ</div>
-          <button class="btn-ghost btn-sm" onclick="regenPrompt('combo')">プロンプト再生成</button>
+        <div id="expandInitMsg" class="tool-init-msg">
+          文章を入力して「展開する」を押してください
         </div>
-        <div class="chips-row" id="comboChips"></div>
-        <div class="prompt-card">
-          <div class="prompt-card-label">// 全要素ミックス</div>
-          <div class="prompt-text" id="comboPrompt"></div>
-          <div class="prompt-actions">
-            <button class="btn-ghost btn-sm" onclick="copyText('comboPrompt')">コピー</button>
-            <button class="btn-ghost btn-sm" onclick="analyzePrompt('comboPrompt')">単語を抽出</button>
+
+        <div id="expandArea" style="display:none">
+          <div class="result-section">
+            <div class="section-label label-near" style="margin-bottom:0.5rem">◈ 抽出された単語</div>
+            <div class="chips-row" id="expandWordChips"></div>
+          </div>
+          <div class="result-section" id="expandMapSection" style="margin-top:1rem"></div>
+          <div class="prompt-card" style="margin-top:1rem">
+            <div class="prompt-card-label">// 生成されたプロンプト</div>
+            <div class="prompt-text" id="expandPrompt"></div>
+            <div class="prompt-actions">
+              <button class="btn-ghost btn-sm" onclick="copyText('expandPrompt')">コピー</button>
+              <button class="btn-ghost btn-sm" onclick="runExpand()">再生成</button>
+            </div>
           </div>
         </div>
       </div>

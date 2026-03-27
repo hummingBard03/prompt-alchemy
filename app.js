@@ -1,13 +1,13 @@
-const API = 'http://localhost:8000';
+const API = window.location.origin;
 
 let currentWord = '';
 let currentNear = [];
 let currentFar  = [];
 let history = [];
-let lastPromptIdx = {};
 let keywords = [];
 let arithPos = [];
 let arithNeg = [];
+let journeyPath = [];
 
 // ── Server check ──
 async function checkServer() {
@@ -56,53 +56,41 @@ async function search() {
   setLoading(false);
 }
 
+function makeChip(w, type, i, score) {
+  const title = score != null ? ` title="${(score*100).toFixed(1)}%"` : '';
+  return `<span class="rchip rchip-${type}" onclick="searchWord('${w}')"${title} style="animation-delay:${i*0.04}s">${w}</span>`;
+}
+
 function renderResults(word, near, far) {
   document.getElementById('placeholder').style.display = 'none';
   document.getElementById('resultArea').style.display = 'block';
   document.getElementById('pivotWord').textContent = word;
 
-  document.getElementById('nearChips').innerHTML = near.map(([w, score], i) =>
-    `<span class="rchip rchip-near" onclick="searchWord('${w}')" title="${(score*100).toFixed(1)}%"
-           style="animation-delay:${i*0.04}s">${w}</span>`
-  ).join('');
-
-  document.getElementById('farChips').innerHTML = far.map(([w], i) =>
-    `<span class="rchip rchip-far" onclick="searchWord('${w}')"
-           style="animation-delay:${i*0.04}s">${w}</span>`
-  ).join('');
+  document.getElementById('nearChips').innerHTML =
+    near.map(([w, score], i) => makeChip(w, 'near', i, score)).join('');
+  document.getElementById('farChips').innerHTML =
+    far.map(([w], i) => makeChip(w, 'far', i)).join('');
 
   const combo = [
     ...near.slice(0, 3).map(([w]) => [w, 'near']),
     ...far.slice(0, 3).map(([w])  => [w, 'far']),
   ];
-  document.getElementById('comboChips').innerHTML = combo.map(([w, type], i) =>
-    `<span class="rchip rchip-${type}" onclick="searchWord('${w}')"
-           style="animation-delay:${i*0.04}s">${w}</span>`
-  ).join('');
+  document.getElementById('comboChips').innerHTML =
+    combo.map(([w, type], i) => makeChip(w, type, i)).join('');
 }
 
 // ── Prompts ──
-async function genPrompt(mode) {
-  const p = currentWord;
-  const n = shuffle(currentNear).slice(0, randomInt(3, currentNear.length));
-  const f = shuffle(currentFar).slice(0, randomInt(3, currentFar.length));
-  const style = document.getElementById('styleSelect').value;
-
-  const elId = mode === 'near'  ? 'nearPrompt'
-             : mode === 'far'   ? 'farPrompt'
-             :                    'comboPrompt';
-
+async function fetchAndFlashPrompt(elId, body) {
   const el = document.getElementById(elId);
   el.textContent = '生成中…';
-
   try {
     const res = await fetch(`${API}/prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pivot: p, near: n, far: f, mode, style, keywords }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
-    el.textContent = data.prompt;
+    el.textContent = data.prompt ?? 'エラーが発生しました';
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
@@ -110,10 +98,39 @@ async function genPrompt(mode) {
     el.textContent = 'エラーが発生しました';
   }
 }
+
+async function genPrompt(mode) {
+  const style = document.getElementById('styleSelect').value;
+  const elId = mode === 'near' ? 'nearPrompt' : mode === 'far' ? 'farPrompt' : 'comboPrompt';
+  await fetchAndFlashPrompt(elId, {
+    pivot: currentWord,
+    near: shuffle(currentNear).slice(0, randomInt(3, currentNear.length)),
+    far:  shuffle(currentFar).slice(0, randomInt(3, currentFar.length)),
+    mode, style, keywords,
+  });
+}
 function regenPrompt(mode) { if (currentWord) genPrompt(mode); }
+
+async function randomSearch() {
+  const btn = document.getElementById('randomBtn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/random`);
+    const data = await res.json();
+    if (data.word) {
+      document.getElementById('wordInput').value = data.word;
+      search();
+    }
+  } catch(e) {
+    console.error('random error:', e);
+  }
+  btn.disabled = false;
+}
 
 function searchWord(word) {
   document.getElementById('wordInput').value = word;
+  const searchBtn = document.querySelector('.main-tab-btn[data-tab="searchTab"]');
+  if (searchBtn && !searchBtn.classList.contains('active')) switchMainTab(searchBtn);
   search();
 }
 
@@ -206,41 +223,29 @@ function addAnalyzedWords(words) {
 }
 
 // ── Arithmetic ──
-function addArithPos() {
-  const input = document.getElementById('arithPosInput');
+function addArith(side) {
+  const arr = side === 'pos' ? arithPos : arithNeg;
+  const input = document.getElementById(side === 'pos' ? 'arithPosInput' : 'arithNegInput');
   const word = input.value.trim();
-  if (!word || arithPos.includes(word)) { input.value = ''; return; }
-  arithPos.push(word);
+  if (!word || arr.includes(word)) { input.value = ''; return; }
+  arr.push(word);
   input.value = '';
   renderArith();
 }
 
-function addArithNeg() {
-  const input = document.getElementById('arithNegInput');
-  const word = input.value.trim();
-  if (!word || arithNeg.includes(word)) { input.value = ''; return; }
-  arithNeg.push(word);
-  input.value = '';
-  renderArith();
-}
-
-function removeArithPos(word) {
-  arithPos = arithPos.filter(w => w !== word);
-  renderArith();
-}
-
-function removeArithNeg(word) {
-  arithNeg = arithNeg.filter(w => w !== word);
+function removeArith(side, word) {
+  if (side === 'pos') arithPos = arithPos.filter(w => w !== word);
+  else                arithNeg = arithNeg.filter(w => w !== word);
   renderArith();
 }
 
 function renderArith() {
   document.getElementById('arithPosChips').innerHTML = arithPos.map(w =>
-    `<span class="kchip">${w}<span class="kchip-remove" onclick="removeArithPos('${w}')">✕</span></span>`
+    `<span class="kchip">${w}<span class="kchip-remove" onclick="removeArith('pos','${w}')">✕</span></span>`
   ).join('');
 
   document.getElementById('arithNegChips').innerHTML = arithNeg.map(w =>
-    `<span class="kchip" style="border-color:var(--pink);background:#c8708214;color:var(--pink)">${w}<span class="kchip-remove" onclick="removeArithNeg('${w}')">✕</span></span>`
+    `<span class="kchip kchip-neg">${w}<span class="kchip-remove" onclick="removeArith('neg','${w}')">✕</span></span>`
   ).join('');
 
   const posParts = arithPos.map((w, i) => (i === 0 ? w : `＋${w}`));
@@ -249,37 +254,35 @@ function renderArith() {
   document.getElementById('arithFormula').textContent = all.length ? all.join(' ') + ' ＝ ？' : '';
 }
 
+async function withBtn(btnId, loadingText, doneText, fn) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = true;
+  btn.textContent = loadingText;
+  await fn();
+  btn.disabled = false;
+  btn.textContent = doneText;
+}
+
 async function doArithmetic() {
   if (arithPos.length === 0 && arithNeg.length === 0) return;
-  const btn = document.getElementById('arithBtn');
-  btn.disabled = true;
-  btn.textContent = '...';
   document.getElementById('arithResults').innerHTML = '';
-
-  try {
-    const topn = parseInt(document.getElementById('topnSlider').value);
-    const res = await fetch(`${API}/arithmetic`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ positive: arithPos, negative: arithNeg, topn }),
-    });
-    const data = await res.json();
-    if (data.error) {
+  await withBtn('arithBtn', '...', '演算する', async () => {
+    try {
+      const topn = parseInt(document.getElementById('topnSlider').value);
+      const res = await fetch(`${API}/arithmetic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positive: arithPos, negative: arithNeg, topn }),
+      });
+      const data = await res.json();
+      document.getElementById('arithResults').innerHTML = data.error
+        ? `<span class="arith-error">${data.error}</span>`
+        : data.results.map(([w, score], i) => makeChip(w, 'arith', i, score)).join('');
+    } catch(e) {
       document.getElementById('arithResults').innerHTML =
-        `<span style="font-size:0.65rem;color:var(--pink)">${data.error}</span>`;
-    } else {
-      document.getElementById('arithResults').innerHTML = data.results.map(([w, score], i) =>
-        `<span class="rchip rchip-arith" onclick="searchWord('${w}')" title="${(score*100).toFixed(1)}%"
-               style="animation-delay:${i*0.04}s">${w}</span>`
-      ).join('');
+        `<span class="arith-error">エラーが発生しました</span>`;
     }
-  } catch(e) {
-    document.getElementById('arithResults').innerHTML =
-      `<span style="font-size:0.65rem;color:var(--pink)">エラーが発生しました</span>`;
-  }
-
-  btn.disabled = false;
-  btn.textContent = '演算する';
+  });
 }
 
 // ── Keywords ──
@@ -303,18 +306,133 @@ function renderKeywords() {
   ).join('');
 }
 
+// ── Journey ──
+async function runJourney() {
+  const start = document.getElementById('journeyStart').value.trim();
+  const end   = document.getElementById('journeyEnd').value.trim();
+  if (!start || !end) return;
+
+  await withBtn('journeyBtn', '...', '探索する', async () => {
+    try {
+      const steps = parseInt(document.getElementById('stepsSlider').value);
+      const res = await fetch(`${API}/journey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start, end, steps }),
+      });
+      const data = await res.json();
+      if (data.error) renderJourneyError(data.error);
+      else { journeyPath = data.path; renderJourneyPath(data.path); }
+    } catch(e) {
+      renderJourneyError('サーバーに接続できません');
+    }
+  });
+}
+
+function renderJourneyPath(path) {
+  document.getElementById('journeyInitMsg').style.display = 'none';
+  document.getElementById('journeyArea').style.display = 'block';
+  document.getElementById('journeyPrompt').textContent = '';
+
+  document.getElementById('journeyPathDisplay').innerHTML = path.map((w, i) => {
+    const cls = i === 0 ? 'rchip rchip-near' : i === path.length - 1 ? 'rchip rchip-far' : 'rchip rchip-arith';
+    const arrow = i < path.length - 1 ? '<span class="journey-arrow">→</span>' : '';
+    return `<span class="${cls}" onclick="searchWord('${w}')" style="animation-delay:${i*0.06}s">${w}</span>${arrow}`;
+  }).join('');
+}
+
+function renderJourneyError(msg) {
+  document.getElementById('journeyInitMsg').style.display = 'none';
+  document.getElementById('journeyArea').style.display = 'block';
+  document.getElementById('journeyPathDisplay').innerHTML =
+    `<span class="arith-error">${msg}</span>`;
+}
+
+async function genJourneyPrompt() {
+  if (!journeyPath.length) return;
+  const style = document.getElementById('styleSelect').value;
+  await fetchAndFlashPrompt('journeyPrompt', {
+    pivot: journeyPath[0], near: [], far: [],
+    mode: 'journey', style, keywords, path: journeyPath,
+  });
+}
+
+// ── Expand ──
+async function runExpand() {
+  const text = document.getElementById('expandInput').value.trim();
+  if (!text) return;
+
+  await withBtn('expandBtn', '...', '展開する', async () => {
+    try {
+      const style = document.getElementById('expandStyleSelect').value;
+      const res = await fetch(`${API}/expand`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, style, keywords }),
+      });
+      const data = await res.json();
+
+      document.getElementById('expandInitMsg').style.display = 'none';
+      document.getElementById('expandArea').style.display = 'block';
+
+      if (data.error) {
+        document.getElementById('expandWordChips').innerHTML =
+          `<span class="arith-error">${data.error}</span>`;
+        document.getElementById('expandMapSection').innerHTML = '';
+        document.getElementById('expandPrompt').textContent = '';
+        return;
+      }
+
+      document.getElementById('expandWordChips').innerHTML =
+        data.words.map((w, i) => makeChip(w, 'near', i, null)).join('');
+
+      document.getElementById('expandMapSection').innerHTML = data.words.map(w => `
+        <div style="margin-bottom:0.6rem">
+          <span class="section-label label-rand" style="font-size:0.65rem">${w}</span>
+          <div class="chips-row" style="margin-top:0.3rem">
+            ${data.word_map[w].map((n, i) => makeChip(n, 'arith', i, null)).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      const el = document.getElementById('expandPrompt');
+      el.textContent = data.prompt;
+      el.classList.remove('flash');
+      void el.offsetWidth;
+      el.classList.add('flash');
+    } catch(e) {
+      document.getElementById('expandPrompt').textContent = 'エラーが発生しました';
+    }
+  });
+}
+
+// ── Tabs ──
+function switchMainTab(btn) {
+  document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.main-tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(btn.dataset.tab).classList.add('active');
+}
+
+function switchTab(btn, groupId) {
+  const group = document.getElementById(groupId);
+  const tabId = btn.dataset.tab;
+  group.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  group.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+
 // ── Init ──
-document.getElementById('wordInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') search();
-});
-document.getElementById('keywordInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addKeyword();
-});
-document.getElementById('arithPosInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addArithPos();
-});
-document.getElementById('arithNegInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addArithNeg();
+[
+  ['wordInput',     () => search()],
+  ['keywordInput',  () => addKeyword()],
+  ['arithPosInput', () => addArith('pos')],
+  ['arithNegInput', () => addArith('neg')],
+  ['journeyStart',  () => document.getElementById('journeyEnd').focus()],
+  ['journeyEnd',    () => runJourney()],
+].forEach(([id, fn]) => {
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') fn(); });
 });
 
 checkServer();
