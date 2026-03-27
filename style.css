@@ -1,4 +1,6 @@
 :root {
+  --font-serif: "Yu Mincho", "YuMincho", "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Noto Serif JP", Georgia, serif;
+  --font-mono: "Cascadia Code", "Fira Code", "Source Code Pro", "Courier New", monospace;
   --bg: #0f0f11;
   --surface: #16161a;
   --surface2: #1c1c22;
@@ -18,7 +20,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -34,7 +36,7 @@ header {
   gap: 1.2rem;
   flex-shrink: 0;
 }
-.logo { font-family:'Noto Serif JP',serif; font-size:1.3rem; font-weight:300; color:var(--gold); letter-spacing:0.35em; }
+.logo { font-family:var(--font-serif); font-size:1.3rem; font-weight:300; color:var(--gold); letter-spacing:0.35em; }
 .logo-sub { font-size:0.52rem; color:var(--muted); letter-spacing:0.25em; text-transform:uppercase; }
 .status-dot {
   margin-left: auto;
@@ -64,7 +66,7 @@ header {
   flex-shrink: 0;
 }
 .main-tab-btn {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.52rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -116,7 +118,7 @@ header {
   text-align: center;
   padding: 3rem 0;
   letter-spacing: 0.1em;
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
 }
 
 /* ── Layout ── */
@@ -169,7 +171,7 @@ header {
 
 /* ── Shared: left panel list item ── */
 .analyze-item, .history-item {
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 0.82rem;
   padding: 0.3rem 0.6rem;
   border-radius: 1px;
@@ -193,7 +195,7 @@ header {
   border-bottom: 1px solid var(--borderc);
 }
 .tab-btn {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.5rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -242,7 +244,7 @@ input[type=text] {
   background: var(--surface2);
   border: 1px solid var(--borderc);
   color: var(--text);
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   padding: 0.6rem 0.9rem;
   border-radius: 2px;
@@ -256,7 +258,7 @@ textarea {
   background: var(--surface2);
   border: 1px solid var(--borderc);
   color: var(--text);
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 0.9rem;
   padding: 0.6rem 0.9rem;
   border-radius: 2px;
@@ -269,7 +271,7 @@ textarea:focus { border-color: var(--gold); }
 textarea::placeholder { color: var(--muted); font-style: italic; font-size: 0.82rem; }
 
 button {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.57rem;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -305,7 +307,7 @@ select#styleSelect {
   background: var(--surface2);
   border: 1px solid var(--borderc);
   color: var(--text);
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 0.52rem;
   letter-spacing: 0.1em;
   padding: 0.28rem 0.5rem;
@@ -329,7 +331,7 @@ select#styleSelect:focus { border-color: var(--gold); }
 .keywords-row { margin-top:0.7rem; display:flex; flex-direction:column; gap:0.45rem; }
 .keywords-input-wrap { display:flex; gap:0.5rem; }
 .kchip {
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 0.78rem;
   padding: 0.18rem 0.55rem;
   border-radius: 1px;
@@ -347,11 +349,11 @@ select#styleSelect:focus { border-color: var(--gold); }
 
 /* ── Arithmetic ── */
 .arith-row { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.3rem; }
-.arith-sign { font-family:'DM Mono',monospace; font-size:0.85rem; width:1.1rem; text-align:center; flex-shrink:0; }
+.arith-sign { font-family:var(--font-mono); font-size:0.85rem; width:1.1rem; text-align:center; flex-shrink:0; }
 .arith-plus  { color: var(--green); }
 .arith-minus { color: var(--pink); }
 .arith-formula {
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 0.78rem;
   color: var(--dim);
   text-align: center;
@@ -373,13 +375,13 @@ select#styleSelect:focus { border-color: var(--gold); }
   gap: 1rem;
   text-align: center;
 }
-.placeholder .big { font-family:'Noto Serif JP',serif; font-size:4rem; color:#282832; }
+.placeholder .big { font-family:var(--font-serif); font-size:4rem; color:#282832; }
 .placeholder p { font-size:0.7rem; color:var(--muted); line-height:2; }
 
 /* ── Pivot ── */
 .pivot-row { display:flex; align-items:baseline; gap:1rem; }
 .pivot-word {
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 2.2rem;
   font-weight: 300;
   color: var(--gold);
@@ -407,7 +409,7 @@ select#styleSelect:focus { border-color: var(--gold); }
 /* ── Chips ── */
 .chips-row { display:flex; flex-wrap:wrap; gap:0.38rem; min-height:2rem; }
 .rchip {
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 0.85rem;
   padding: 0.22rem 0.75rem;
   border-radius: 1px;
@@ -430,7 +432,7 @@ select#styleSelect:focus { border-color: var(--gold); }
   padding: 1.1rem 1.3rem;
 }
 .prompt-text {
-  font-family: 'Noto Serif JP', serif;
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   line-height: 2.1;
   color: var(--text);
@@ -441,4 +443,4 @@ select#styleSelect:focus { border-color: var(--gold); }
 
 .prompt-actions { display:flex; gap:0.4rem; margin-top:0.8rem; }
 .divider { border:none; border-top:1px solid var(--borderc); }
-.error-msg { font-size:0.72rem; color:var(--pink); padding:0.5rem 0; font-family:'Noto Serif JP',serif; }
+.error-msg { font-size:0.72rem; color:var(--pink); padding:0.5rem 0; font-family:var(--font-serif); }
