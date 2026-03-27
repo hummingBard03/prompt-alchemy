@@ -23,6 +23,7 @@
     <div class="main-tab-btn active" data-tab="searchTab" onclick="switchMainTab(this)">検索</div>
     <div class="main-tab-btn" data-tab="arithTab" onclick="switchMainTab(this)">ベクトル演算</div>
     <div class="main-tab-btn" data-tab="journeyTab" onclick="switchMainTab(this)">連想チェーン</div>
+    <div class="main-tab-btn" data-tab="expandTab" onclick="switchMainTab(this)">文章展開</div>
   </div>
 
   <!-- ── 検索タブ ── -->
@@ -245,6 +246,67 @@
                 <button class="btn-ghost btn-sm" onclick="copyText('journeyPrompt')">コピー</button>
                 <button class="btn-ghost btn-sm" onclick="analyzePrompt('journeyPrompt')">単語を抽出</button>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 文章展開タブ ── -->
+  <div class="main-tab-pane" id="expandTab">
+    <div class="tool-page">
+      <div class="tool-page-inner">
+        <div class="tool-section">
+          <div class="search-label">文章を貼り付け</div>
+          <textarea id="expandInput" placeholder="詩、小説の一節、メモなど何でも…" rows="5"></textarea>
+          <div class="style-row" style="margin-top:0.5rem">
+            <span class="style-label">スタイル</span>
+            <select id="expandStyleSelect">
+              <option value="">なし</option>
+              <optgroup label="── 絵画技法">
+              <option value="水彩画">水彩画</option>
+              <option value="油絵">油絵</option>
+              <option value="水墨画">水墨画</option>
+              <option value="パステル画">パステル画</option>
+              </optgroup>
+              <optgroup label="── 美術様式">
+              <option value="印象派絵画">印象派</option>
+              <option value="表現主義絵画">表現主義</option>
+              <option value="シュルレアリスム絵画">シュルレアリスム</option>
+              <option value="浮世絵">浮世絵</option>
+              </optgroup>
+              <optgroup label="── 写真">
+              <option value="写実的な写真">写実的な写真</option>
+              <option value="フィルム写真（粒状感あり）">フィルム写真</option>
+              <option value="モノクロ写真">モノクロ写真</option>
+              </optgroup>
+              <optgroup label="── その他">
+              <option value="アニメ調イラスト">アニメ調</option>
+              <option value="サイバーパンク">サイバーパンク</option>
+              <option value="ドット絵">ドット絵</option>
+              </optgroup>
+            </select>
+          </div>
+          <button class="btn-ghost btn-sm journey-btn" onclick="runExpand()" id="expandBtn" style="margin-top:0.75rem">展開する</button>
+        </div>
+
+        <div id="expandInitMsg" class="tool-init-msg">
+          文章を入力して「展開する」を押してください
+        </div>
+
+        <div id="expandArea" style="display:none">
+          <div class="result-section">
+            <div class="section-label label-near" style="margin-bottom:0.5rem">◈ 抽出された単語</div>
+            <div class="chips-row" id="expandWordChips"></div>
+          </div>
+          <div class="result-section" id="expandMapSection" style="margin-top:1rem"></div>
+          <div class="prompt-card" style="margin-top:1rem">
+            <div class="prompt-card-label">// 生成されたプロンプト</div>
+            <div class="prompt-text" id="expandPrompt"></div>
+            <div class="prompt-actions">
+              <button class="btn-ghost btn-sm" onclick="copyText('expandPrompt')">コピー</button>
+              <button class="btn-ghost btn-sm" onclick="runExpand()">再生成</button>
             </div>
           </div>
         </div>

@@ -27,6 +27,12 @@ class JourneyRequest(BaseModel):
 class AnalyzeRequest(BaseModel):
     text: str
 
+class ExpandRequest(BaseModel):
+    text: str
+    style: str = ""
+    keywords: list[str] = []
+    topn: int = 5
+
 class ArithmeticRequest(BaseModel):
     positive: list[str] = []
     negative: list[str] = []
@@ -42,6 +48,13 @@ client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
 tagger = fugashi.Tagger()
 
+def missing(*words):
+    """未登録単語があれば {"error": ...} を返す。なければ None。"""
+    for w in words:
+        if w not in model:
+            return {"error": f"「{w}」が見つかりません"}
+    return None
+
 _jp = re.compile(r'[\u3040-\u9fff]')
 _random_vocab = [w for w in list(model.key_to_index)[:50000] if len(w) >= 2 and _jp.search(w)]
 
@@ -51,24 +64,21 @@ def random_word():
 
 @app.get("/similar")
 def similar(word: str, topn: int = 10):
-    if word not in model:
-        return {"error": "単語が見つかりません"}
+    if err := missing(word): return err
     raw = model.most_similar(word, topn=topn * 3)
     random.shuffle(raw)
     return {"results": raw[:topn]}
 
 @app.get("/distant")
 def distant(word: str, topn: int = 10):
-    if word not in model:
-        return {"error": "単語が見つかりません"}
+    if err := missing(word): return err
     raw = model.most_similar(negative=[word], topn=topn * 3)
     random.shuffle(raw)
     return {"results": raw[:topn]}
 
 @app.get("/similarity")
 def similarity(word1: str, word2: str):
-    if word1 not in model or word2 not in model:
-        return {"error": "単語が見つかりません"}
+    if err := missing(word1, word2): return err
     return {"score": float(model.similarity(word1, word2))}
 
 @app.post("/prompt")
@@ -79,12 +89,15 @@ def generate_prompt(req: PromptRequest):
         "combo":   f"「{req.pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {', '.join(req.near)} / 遠い: {', '.join(req.far)}",
         "journey": f"「{req.path[0]}」から「{req.path[-1]}」へと意味が移ろう情景を作ってください。経路の単語を情景の変化として使ってください。経路: {' → '.join(req.path)}",
     }
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=1000,
-        messages=[{
-            "role": "user",
-            "content": f"""画像生成AIのプロンプトを日本語で1つ作ってください。
+    if req.mode not in instructions:
+        return {"error": f"不明なモードです: {req.mode}"}
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1000,
+            messages=[{
+                "role": "user",
+                "content": f"""画像生成AIのプロンプトを日本語で1つ作ってください。
 
 {instructions[req.mode]}
 
@@ -94,17 +107,17 @@ def generate_prompt(req: PromptRequest):
 {"- 以下の単語を必ずプロンプトに含める: " + "、".join(req.keywords) if req.keywords else ""}
 - 500文字以内
 - プロンプト文だけ返す。説明や前置きは不要"""
-        }]
-    )
+            }]
+        )
+    except Exception as e:
+        return {"error": f"プロンプト生成に失敗しました: {e}"}
     return {"prompt": message.content[0].text}
 
 @app.post("/arithmetic")
 def arithmetic(req: ArithmeticRequest):
     if not req.positive and not req.negative:
         return {"error": "単語を入力してください"}
-    for w in req.positive + req.negative:
-        if w not in model:
-            return {"error": f"「{w}」が見つかりません"}
+    if err := missing(*req.positive, *req.negative): return err
     raw = model.most_similar(positive=req.positive or None, negative=req.negative or None, topn=req.topn * 3)
     exclude = set(req.positive + req.negative)
     filtered = [(w, s) for w, s in raw if w not in exclude]
@@ -113,10 +126,7 @@ def arithmetic(req: ArithmeticRequest):
 
 @app.post("/journey")
 def journey(req: JourneyRequest):
-    if req.start not in model:
-        return {"error": f"「{req.start}」が見つかりません"}
-    if req.end not in model:
-        return {"error": f"「{req.end}」が見つかりません"}
+    if err := missing(req.start, req.end): return err
     if req.start == req.end:
         return {"error": "起点と終点が同じ単語です"}
 
@@ -136,6 +146,57 @@ def journey(req: JourneyRequest):
 
     path.append(req.end)
     return {"path": path}
+
+@app.post("/expand")
+def expand(req: ExpandRequest):
+    extracted = []
+    for word in tagger(req.text):
+        pos = word.feature.pos1
+        surface = word.surface
+        if pos in ["名詞", "形容詞", "動詞"] and len(surface) >= 2 and surface in model:
+            extracted.append(surface)
+    extracted = list(dict.fromkeys(extracted))[:6]
+
+    if not extracted:
+        return {"error": "モデルに登録された単語が見つかりませんでした"}
+
+    word_map = {}
+    for w in extracted:
+        word_map[w] = [s for s, _ in model.most_similar(w, topn=req.topn)]
+
+    context_lines = "\n".join(
+        f"・{w}: {', '.join(neighbors)}" for w, neighbors in word_map.items()
+    )
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1000,
+            messages=[{
+                "role": "user",
+                "content": f"""画像生成AIのプロンプトを日本語で1つ作ってください。
+
+以下の単語群の「意味の束」を元に情景を作ってください。
+各単語とその意味的な近傍語を参考にしてください。
+
+抽出された単語と近傍語:
+{context_lines}
+
+条件:
+- 情景や雰囲気が浮かぶ詩的な文にする
+{"- スタイル指定: " + req.style + "の画風で表現する" if req.style else ""}
+{"- 以下の単語を必ずプロンプトに含める: " + "、".join(req.keywords) if req.keywords else ""}
+- 500文字以内
+- プロンプト文だけ返す。説明や前置きは不要"""
+            }]
+        )
+    except Exception as e:
+        return {"error": f"プロンプト生成に失敗しました: {e}"}
+
+    return {
+        "words": extracted,
+        "word_map": word_map,
+        "prompt": message.content[0].text,
+    }
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):

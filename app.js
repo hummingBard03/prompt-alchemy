@@ -4,7 +4,6 @@ let currentWord = '';
 let currentNear = [];
 let currentFar  = [];
 let history = [];
-let lastPromptIdx = {};
 let keywords = [];
 let arithPos = [];
 let arithNeg = [];
@@ -57,59 +56,58 @@ async function search() {
   setLoading(false);
 }
 
+function makeChip(w, type, i, score) {
+  const title = score != null ? ` title="${(score*100).toFixed(1)}%"` : '';
+  return `<span class="rchip rchip-${type}" onclick="searchWord('${w}')"${title} style="animation-delay:${i*0.04}s">${w}</span>`;
+}
+
 function renderResults(word, near, far) {
   document.getElementById('placeholder').style.display = 'none';
   document.getElementById('resultArea').style.display = 'block';
   document.getElementById('pivotWord').textContent = word;
 
-  document.getElementById('nearChips').innerHTML = near.map(([w, score], i) =>
-    `<span class="rchip rchip-near" onclick="searchWord('${w}')" title="${(score*100).toFixed(1)}%"
-           style="animation-delay:${i*0.04}s">${w}</span>`
-  ).join('');
-
-  document.getElementById('farChips').innerHTML = far.map(([w], i) =>
-    `<span class="rchip rchip-far" onclick="searchWord('${w}')"
-           style="animation-delay:${i*0.04}s">${w}</span>`
-  ).join('');
+  document.getElementById('nearChips').innerHTML =
+    near.map(([w, score], i) => makeChip(w, 'near', i, score)).join('');
+  document.getElementById('farChips').innerHTML =
+    far.map(([w], i) => makeChip(w, 'far', i)).join('');
 
   const combo = [
     ...near.slice(0, 3).map(([w]) => [w, 'near']),
     ...far.slice(0, 3).map(([w])  => [w, 'far']),
   ];
-  document.getElementById('comboChips').innerHTML = combo.map(([w, type], i) =>
-    `<span class="rchip rchip-${type}" onclick="searchWord('${w}')"
-           style="animation-delay:${i*0.04}s">${w}</span>`
-  ).join('');
+  document.getElementById('comboChips').innerHTML =
+    combo.map(([w, type], i) => makeChip(w, type, i)).join('');
 }
 
 // ── Prompts ──
-async function genPrompt(mode) {
-  const p = currentWord;
-  const n = shuffle(currentNear).slice(0, randomInt(3, currentNear.length));
-  const f = shuffle(currentFar).slice(0, randomInt(3, currentFar.length));
-  const style = document.getElementById('styleSelect').value;
-
-  const elId = mode === 'near'  ? 'nearPrompt'
-             : mode === 'far'   ? 'farPrompt'
-             :                    'comboPrompt';
-
+async function fetchAndFlashPrompt(elId, body) {
   const el = document.getElementById(elId);
   el.textContent = '生成中…';
-
   try {
     const res = await fetch(`${API}/prompt`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pivot: p, near: n, far: f, mode, style, keywords }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
-    el.textContent = data.prompt;
+    el.textContent = data.prompt ?? 'エラーが発生しました';
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
   } catch(e) {
     el.textContent = 'エラーが発生しました';
   }
+}
+
+async function genPrompt(mode) {
+  const style = document.getElementById('styleSelect').value;
+  const elId = mode === 'near' ? 'nearPrompt' : mode === 'far' ? 'farPrompt' : 'comboPrompt';
+  await fetchAndFlashPrompt(elId, {
+    pivot: currentWord,
+    near: shuffle(currentNear).slice(0, randomInt(3, currentNear.length)),
+    far:  shuffle(currentFar).slice(0, randomInt(3, currentFar.length)),
+    mode, style, keywords,
+  });
 }
 function regenPrompt(mode) { if (currentWord) genPrompt(mode); }
 
@@ -256,37 +254,35 @@ function renderArith() {
   document.getElementById('arithFormula').textContent = all.length ? all.join(' ') + ' ＝ ？' : '';
 }
 
+async function withBtn(btnId, loadingText, doneText, fn) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = true;
+  btn.textContent = loadingText;
+  await fn();
+  btn.disabled = false;
+  btn.textContent = doneText;
+}
+
 async function doArithmetic() {
   if (arithPos.length === 0 && arithNeg.length === 0) return;
-  const btn = document.getElementById('arithBtn');
-  btn.disabled = true;
-  btn.textContent = '...';
   document.getElementById('arithResults').innerHTML = '';
-
-  try {
-    const topn = parseInt(document.getElementById('topnSlider').value);
-    const res = await fetch(`${API}/arithmetic`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ positive: arithPos, negative: arithNeg, topn }),
-    });
-    const data = await res.json();
-    if (data.error) {
+  await withBtn('arithBtn', '...', '演算する', async () => {
+    try {
+      const topn = parseInt(document.getElementById('topnSlider').value);
+      const res = await fetch(`${API}/arithmetic`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ positive: arithPos, negative: arithNeg, topn }),
+      });
+      const data = await res.json();
+      document.getElementById('arithResults').innerHTML = data.error
+        ? `<span class="arith-error">${data.error}</span>`
+        : data.results.map(([w, score], i) => makeChip(w, 'arith', i, score)).join('');
+    } catch(e) {
       document.getElementById('arithResults').innerHTML =
-        `<span class="arith-error">${data.error}</span>`;
-    } else {
-      document.getElementById('arithResults').innerHTML = data.results.map(([w, score], i) =>
-        `<span class="rchip rchip-arith" onclick="searchWord('${w}')" title="${(score*100).toFixed(1)}%"
-               style="animation-delay:${i*0.04}s">${w}</span>`
-      ).join('');
+        `<span class="arith-error">エラーが発生しました</span>`;
     }
-  } catch(e) {
-    document.getElementById('arithResults').innerHTML =
-      `<span class="arith-error">エラーが発生しました</span>`;
-  }
-
-  btn.disabled = false;
-  btn.textContent = '演算する';
+  });
 }
 
 // ── Keywords ──
@@ -316,30 +312,21 @@ async function runJourney() {
   const end   = document.getElementById('journeyEnd').value.trim();
   if (!start || !end) return;
 
-  const btn = document.getElementById('journeyBtn');
-  btn.disabled = true;
-  btn.textContent = '...';
-
-  try {
-    const steps = parseInt(document.getElementById('stepsSlider').value);
-    const res = await fetch(`${API}/journey`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ start, end, steps }),
-    });
-    const data = await res.json();
-    if (data.error) {
-      renderJourneyError(data.error);
-    } else {
-      journeyPath = data.path;
-      renderJourneyPath(data.path);
+  await withBtn('journeyBtn', '...', '探索する', async () => {
+    try {
+      const steps = parseInt(document.getElementById('stepsSlider').value);
+      const res = await fetch(`${API}/journey`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start, end, steps }),
+      });
+      const data = await res.json();
+      if (data.error) renderJourneyError(data.error);
+      else { journeyPath = data.path; renderJourneyPath(data.path); }
+    } catch(e) {
+      renderJourneyError('サーバーに接続できません');
     }
-  } catch(e) {
-    renderJourneyError('サーバーに接続できません');
-  }
-
-  btn.disabled = false;
-  btn.textContent = '探索する';
+  });
 }
 
 function renderJourneyPath(path) {
@@ -363,27 +350,60 @@ function renderJourneyError(msg) {
 
 async function genJourneyPrompt() {
   if (!journeyPath.length) return;
-  const el = document.getElementById('journeyPrompt');
-  el.textContent = '生成中…';
+  const style = document.getElementById('styleSelect').value;
+  await fetchAndFlashPrompt('journeyPrompt', {
+    pivot: journeyPath[0], near: [], far: [],
+    mode: 'journey', style, keywords, path: journeyPath,
+  });
+}
 
-  try {
-    const style = document.getElementById('styleSelect').value;
-    const res = await fetch(`${API}/prompt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        pivot: journeyPath[0], near: [], far: [],
-        mode: 'journey', style, keywords, path: journeyPath,
-      }),
-    });
-    const data = await res.json();
-    el.textContent = data.prompt;
-    el.classList.remove('flash');
-    void el.offsetWidth;
-    el.classList.add('flash');
-  } catch(e) {
-    el.textContent = 'エラーが発生しました';
-  }
+// ── Expand ──
+async function runExpand() {
+  const text = document.getElementById('expandInput').value.trim();
+  if (!text) return;
+
+  await withBtn('expandBtn', '...', '展開する', async () => {
+    try {
+      const style = document.getElementById('expandStyleSelect').value;
+      const res = await fetch(`${API}/expand`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, style, keywords }),
+      });
+      const data = await res.json();
+
+      document.getElementById('expandInitMsg').style.display = 'none';
+      document.getElementById('expandArea').style.display = 'block';
+
+      if (data.error) {
+        document.getElementById('expandWordChips').innerHTML =
+          `<span class="arith-error">${data.error}</span>`;
+        document.getElementById('expandMapSection').innerHTML = '';
+        document.getElementById('expandPrompt').textContent = '';
+        return;
+      }
+
+      document.getElementById('expandWordChips').innerHTML =
+        data.words.map((w, i) => makeChip(w, 'near', i, null)).join('');
+
+      document.getElementById('expandMapSection').innerHTML = data.words.map(w => `
+        <div style="margin-bottom:0.6rem">
+          <span class="section-label label-rand" style="font-size:0.65rem">${w}</span>
+          <div class="chips-row" style="margin-top:0.3rem">
+            ${data.word_map[w].map((n, i) => makeChip(n, 'arith', i, null)).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      const el = document.getElementById('expandPrompt');
+      el.textContent = data.prompt;
+      el.classList.remove('flash');
+      void el.offsetWidth;
+      el.classList.add('flash');
+    } catch(e) {
+      document.getElementById('expandPrompt').textContent = 'エラーが発生しました';
+    }
+  });
 }
 
 // ── Tabs ──
@@ -404,23 +424,15 @@ function switchTab(btn, groupId) {
 }
 
 // ── Init ──
-document.getElementById('wordInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') search();
-});
-document.getElementById('keywordInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addKeyword();
-});
-document.getElementById('arithPosInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addArith('pos');
-});
-document.getElementById('arithNegInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addArith('neg');
-});
-document.getElementById('journeyStart').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('journeyEnd').focus();
-});
-document.getElementById('journeyEnd').addEventListener('keydown', e => {
-  if (e.key === 'Enter') runJourney();
+[
+  ['wordInput',     () => search()],
+  ['keywordInput',  () => addKeyword()],
+  ['arithPosInput', () => addArith('pos')],
+  ['arithNegInput', () => addArith('neg')],
+  ['journeyStart',  () => document.getElementById('journeyEnd').focus()],
+  ['journeyEnd',    () => runJourney()],
+].forEach(([id, fn]) => {
+  document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') fn(); });
 });
 
 checkServer();
