@@ -95,27 +95,36 @@ def generate_prompt(req: PromptRequest):
         instruction = f"「{req.pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {', '.join(req.near)} / 遠い: {', '.join(req.far)}"
     else:
         return {"error": f"不明なモードです: {req.mode}"}
+    style_line = f"- Art style / medium: {req.style}" if req.style else ""
+    keyword_line = f"- Must include these concepts: {', '.join(req.keywords)}" if req.keywords else ""
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1000,
             messages=[{
                 "role": "user",
-                "content": f"""画像生成AIのプロンプトを日本語で1つ作ってください。
+                "content": f"""You are a prompt engineer for AI image generation.
 
+Semantic instruction (Japanese):
 {instruction}
+{style_line}
+{keyword_line}
 
-条件:
-- 情景や雰囲気が浮かぶ詩的な文にする
-{"- スタイル指定: " + req.style + "の画風で表現する" if req.style else ""}
-{"- 以下の単語を必ずプロンプトに含める: " + "、".join(req.keywords) if req.keywords else ""}
-- 500文字以内
-- プロンプト文だけ返す。説明や前置きは不要"""
+Output exactly 2 lines, no extra text:
+Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>
+Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and visual, subject/composition/environment/lighting/time/mood>"""
             }]
         )
     except Exception as e:
         return {"error": f"プロンプト生成に失敗しました: {e}"}
-    return {"prompt": message.content[0].text}
+    raw = message.content[0].text
+    scene_ja, prompt = "", raw
+    for line in raw.splitlines():
+        if line.startswith("SCENE:"):
+            scene_ja = line[len("SCENE:"):].strip()
+        elif line.startswith("PROMPT:"):
+            prompt = line[len("PROMPT:"):].strip()
+    return {"prompt": prompt, "scene_ja": scene_ja}
 
 @app.post("/arithmetic")
 def arithmetic(req: ArithmeticRequest):
@@ -171,36 +180,37 @@ def expand(req: ExpandRequest):
     context_lines = "\n".join(
         f"・{w}: {', '.join(neighbors)}" for w, neighbors in word_map.items()
     )
+    style_line = f"- Art style / medium: {req.style}" if req.style else ""
+    keyword_line = f"- Must include these concepts: {', '.join(req.keywords)}" if req.keywords else ""
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=1000,
             messages=[{
                 "role": "user",
-                "content": f"""画像生成AIのプロンプトを日本語で1つ作ってください。
+                "content": f"""You are a prompt engineer for AI image generation.
 
-以下の単語群の「意味の束」を元に情景を作ってください。
-各単語とその意味的な近傍語を参考にしてください。
-
-抽出された単語と近傍語:
+Word clusters (Japanese semantic space):
 {context_lines}
+{style_line}
+{keyword_line}
 
-条件:
-- 情景や雰囲気が浮かぶ詩的な文にする
-{"- スタイル指定: " + req.style + "の画風で表現する" if req.style else ""}
-{"- 以下の単語を必ずプロンプトに含める: " + "、".join(req.keywords) if req.keywords else ""}
-- 500文字以内
-- プロンプト文だけ返す。説明や前置きは不要"""
+Output exactly 2 lines, no extra text:
+Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>
+Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and visual, subject/composition/environment/lighting/time/mood>"""
             }]
         )
     except Exception as e:
         return {"error": f"プロンプト生成に失敗しました: {e}"}
 
-    return {
-        "words": extracted,
-        "word_map": word_map,
-        "prompt": message.content[0].text,
-    }
+    raw = message.content[0].text
+    scene_ja, prompt = "", raw
+    for line in raw.splitlines():
+        if line.startswith("SCENE:"):
+            scene_ja = line[len("SCENE:"):].strip()
+        elif line.startswith("PROMPT:"):
+            prompt = line[len("PROMPT:"):].strip()
+    return {"words": extracted, "word_map": word_map, "prompt": prompt, "scene_ja": scene_ja}
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):

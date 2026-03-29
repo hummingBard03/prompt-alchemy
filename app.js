@@ -91,6 +91,8 @@ async function fetchAndFlashPrompt(elId, body) {
     });
     const data = await res.json();
     el.textContent = data.prompt ?? 'エラーが発生しました';
+    const sceneEl = document.getElementById(elId + 'Scene');
+    if (sceneEl) sceneEl.textContent = data.scene_ja ?? '';
     el.classList.remove('flash');
     void el.offsetWidth;
     el.classList.add('flash');
@@ -149,7 +151,8 @@ function randomInt(min, max) {
 
 // ── Analyze ──
 async function analyzePrompt(elId) {
-  const text = document.getElementById(elId).textContent;
+  const sceneEl = document.getElementById(elId + 'Scene');
+  const text = (sceneEl && sceneEl.textContent) || document.getElementById(elId).textContent;
   if (!text || text === '生成中…') return;
   try {
     const res = await fetch(`${API}/analyze`, {
@@ -397,6 +400,8 @@ async function runExpand() {
 
       const el = document.getElementById('expandPrompt');
       el.textContent = data.prompt;
+      const sceneEl = document.getElementById('expandPromptScene');
+      if (sceneEl) sceneEl.textContent = data.scene_ja ?? '';
       el.classList.remove('flash');
       void el.offsetWidth;
       el.classList.add('flash');

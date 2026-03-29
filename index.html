@@ -134,7 +134,9 @@
             </div>
             <div class="chips-row" id="nearChips"></div>
             <div class="prompt-card">
-              <div class="prompt-card-label">// プロンプト候補</div>
+              <div class="prompt-card-label">// 情景メモ</div>
+              <div class="scene-ja" id="nearPromptScene"></div>
+              <div class="prompt-card-label" style="margin-top:0.6rem">// EN prompt</div>
               <div class="prompt-text" id="nearPrompt"></div>
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('nearPrompt')">コピー</button>
@@ -152,7 +154,9 @@
             </div>
             <div class="chips-row" id="farChips"></div>
             <div class="prompt-card">
-              <div class="prompt-card-label">// プロンプト候補</div>
+              <div class="prompt-card-label">// 情景メモ</div>
+              <div class="scene-ja" id="farPromptScene"></div>
+              <div class="prompt-card-label" style="margin-top:0.6rem">// EN prompt</div>
               <div class="prompt-text" id="farPrompt"></div>
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('farPrompt')">コピー</button>
@@ -170,7 +174,9 @@
             </div>
             <div class="chips-row" id="comboChips"></div>
             <div class="prompt-card">
-              <div class="prompt-card-label">// 全要素ミックス</div>
+              <div class="prompt-card-label">// 情景メモ</div>
+              <div class="scene-ja" id="comboPromptScene"></div>
+              <div class="prompt-card-label" style="margin-top:0.6rem">// EN prompt</div>
               <div class="prompt-text" id="comboPrompt"></div>
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('comboPrompt')">コピー</button>
@@ -239,7 +245,9 @@
             </div>
             <div class="journey-path" id="journeyPathDisplay"></div>
             <div class="prompt-card">
-              <div class="prompt-card-label">// プロンプト候補</div>
+              <div class="prompt-card-label">// 情景メモ</div>
+              <div class="scene-ja" id="journeyPromptScene"></div>
+              <div class="prompt-card-label" style="margin-top:0.6rem">// EN prompt</div>
               <div class="prompt-text" id="journeyPrompt"></div>
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('journeyPrompt')">コピー</button>
@@ -301,7 +309,9 @@
           </div>
           <div class="result-section" id="expandMapSection" style="margin-top:1rem"></div>
           <div class="prompt-card" style="margin-top:1rem">
-            <div class="prompt-card-label">// 生成されたプロンプト</div>
+            <div class="prompt-card-label">// 情景メモ</div>
+            <div class="scene-ja" id="expandPromptScene"></div>
+            <div class="prompt-card-label" style="margin-top:0.6rem">// EN prompt</div>
             <div class="prompt-text" id="expandPrompt"></div>
             <div class="prompt-actions">
               <button class="btn-ghost btn-sm" onclick="copyText('expandPrompt')">コピー</button>
