@@ -23,6 +23,7 @@
     <div class="main-tab-btn" data-tab="arithTab" onclick="switchMainTab(this)">ベクトル演算</div>
     <div class="main-tab-btn" data-tab="journeyTab" onclick="switchMainTab(this)">連想チェーン</div>
     <div class="main-tab-btn" data-tab="expandTab" onclick="switchMainTab(this)">文章展開</div>
+    <div class="main-tab-btn" data-tab="toneTab" onclick="switchMainTab(this)">トーン調整</div>
   </div>
 
   <!-- ── 検索タブ ── -->
@@ -184,6 +185,178 @@
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── トーン調整タブ ── -->
+  <div class="main-tab-pane" id="toneTab">
+    <div class="tool-page">
+      <div class="tool-page-inner">
+        <div class="tool-section">
+          <div class="tone-tab-grid">
+            <div class="tone-row">
+              <span class="tone-axis">明るさ</span>
+              <select id="tone_brightness">
+                <option value="-3">漆黒</option>
+                <option value="-2">暗闇</option>
+                <option value="-1">薄暗い</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">淡い光</option>
+                <option value="2">明るい</option>
+                <option value="3">眩しい</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">静けさ</span>
+              <select id="tone_quietness">
+                <option value="-3">激動</option>
+                <option value="-2">喧噪</option>
+                <option value="-1">やや騒がしい</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">穏やか</option>
+                <option value="2">静寂</option>
+                <option value="3">深閑</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">神秘性</span>
+              <select id="tone_mystery">
+                <option value="-3">世俗的</option>
+                <option value="-2">日常的</option>
+                <option value="-1">やや現実的</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">不思議な</option>
+                <option value="2">神秘的</option>
+                <option value="3">幽玄</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">温度感</span>
+              <select id="tone_warmth">
+                <option value="-3">極寒</option>
+                <option value="-2">冷たい</option>
+                <option value="-1">ひんやり</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">温かい</option>
+                <option value="2">熱い</option>
+                <option value="3">灼熱</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">時代感</span>
+              <select id="tone_era">
+                <option value="-3">太古</option>
+                <option value="-2">中世</option>
+                <option value="-1">やや古め</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">近未来</option>
+                <option value="2">SF的</option>
+                <option value="3">遠未来</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">スケール</span>
+              <select id="tone_scale">
+                <option value="-3">極小</option>
+                <option value="-2">小さい</option>
+                <option value="-1">こぢんまり</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">広大</option>
+                <option value="2">雄大</option>
+                <option value="3">宇宙的</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">密度</span>
+              <select id="tone_density">
+                <option value="-3">空疎</option>
+                <option value="-2">広々</option>
+                <option value="-1">やや疎</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">やや密</option>
+                <option value="2">込み入った</option>
+                <option value="3">過密</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">廃れ感</span>
+              <select id="tone_decay">
+                <option value="-3">新築・新鮮</option>
+                <option value="-2">手つかず</option>
+                <option value="-1">わずかに古い</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">風化した</option>
+                <option value="2">廃墟</option>
+                <option value="3">完全崩壊</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">雰囲気</span>
+              <select id="tone_mood">
+                <option value="-3">癒やし</option>
+                <option value="-2">穏やか</option>
+                <option value="-1">やや穏やか</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">やや不穏</option>
+                <option value="2">不穏・禍々しい</option>
+                <option value="3">恐怖・戦慄</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">色彩</span>
+              <select id="tone_color">
+                <option value="-3">無彩色</option>
+                <option value="-2">色褪せた</option>
+                <option value="-1">くすんだ</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">鮮やか</option>
+                <option value="2">濃彩</option>
+                <option value="3">極彩色</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">光の質</span>
+              <select id="tone_lighting">
+                <option value="-3">暗闇・光源なし</option>
+                <option value="-2">月明かり・蝋燭</option>
+                <option value="-1">薄い間接光</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">柔らかい拡散光</option>
+                <option value="2">逆光・サイド光</option>
+                <option value="3">神光・強烈スポット</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">空間の開閉</span>
+              <select id="tone_spatial">
+                <option value="-3">密閉・閉塞</option>
+                <option value="-2">狭い囲まれた空間</option>
+                <option value="-1">こじんまりした</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">開放的</option>
+                <option value="2">広大な風景</option>
+                <option value="3">無限の地平</option>
+              </select>
+            </div>
+            <div class="tone-row">
+              <span class="tone-axis">大気の透明度</span>
+              <select id="tone_clarity">
+                <option value="-3">濃霧・視界ゼロ</option>
+                <option value="-2">深い霧・靄</option>
+                <option value="-1">うっすら霞んだ</option>
+                <option value="0" selected>–（指定なし）</option>
+                <option value="1">澄んだ空気</option>
+                <option value="2">クリスタルクリア</option>
+                <option value="3">超鮮明・くっきり</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-ghost btn-sm" style="margin-top:1rem" onclick="resetTone()">リセット</button>
+        </div>
+        <div class="tone-tab-hint">
+          設定したトーンはすべてのタブのプロンプト生成に反映されます
         </div>
       </div>
     </div>

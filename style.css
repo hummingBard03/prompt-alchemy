@@ -302,21 +302,25 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 input[type=range] { flex:1; accent-color:var(--gold); height:2px; }
 .topn-val { color: var(--text); min-width: 1.5rem; }
 .style-label { white-space: nowrap; }
-select#styleSelect {
-  flex: 1;
-  background: var(--surface2);
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--surface2) url("chevron-down.svg") no-repeat right 0.45rem center;
   border: 1px solid var(--borderc);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 0.52rem;
+  font-size: 0.7rem;
   letter-spacing: 0.1em;
-  padding: 0.28rem 0.5rem;
+  padding: 0.28rem 1.4rem 0.28rem 0.5rem;
   border-radius: 2px;
   outline: none;
   cursor: pointer;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, color 0.2s;
 }
-select#styleSelect:focus { border-color: var(--gold); }
+select:focus { border-color: var(--gold); }
+select:hover { border-color: var(--dim); }
+select option { background: var(--surface2); color: var(--text); }
+select#styleSelect { flex: 1; }
 
 /* ── Journey ── */
 .journey-inputs { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.4rem; }
@@ -346,6 +350,32 @@ select#styleSelect:focus { border-color: var(--gold); }
 .kchip-neg { border-color:var(--pink); background:#c8708214; color:var(--pink); }
 .kchip-remove { font-size:0.6rem; color:var(--muted); cursor:pointer; line-height:1; transition:color 0.12s; }
 .kchip-remove:hover { color: var(--pink); }
+
+/* ── Tone tab ── */
+.tone-tab-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem 1.2rem;
+}
+.tone-row {
+  display: grid;
+  grid-template-columns: 4em 1fr;
+  align-items: center;
+  gap: 0.4rem;
+}
+.tone-axis {
+  font-size: 0.5rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.tone-row select { width: 100%; }
+.tone-tab-hint {
+  font-size: 0.5rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-align: center;
+}
 
 /* ── Arithmetic ── */
 .arith-row { display:flex; align-items:center; gap:0.4rem; margin-bottom:0.3rem; }
