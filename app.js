@@ -108,7 +108,7 @@ async function genPrompt(mode) {
     pivot: currentWord,
     near: shuffle(currentNear).slice(0, randomInt(3, currentNear.length)),
     far:  shuffle(currentFar).slice(0, randomInt(3, currentFar.length)),
-    mode, style, keywords,
+    mode, style, keywords, tone: getTone(),
   });
 }
 function regenPrompt(mode) { if (currentWord) genPrompt(mode); }
@@ -147,6 +147,24 @@ function shuffle(arr) {
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// ── Tone ──
+const TONE_AXES = ['brightness', 'quietness', 'mystery', 'warmth', 'era', 'scale', 'density', 'decay', 'mood', 'color', 'lighting', 'spatial', 'clarity'];
+
+function getTone() {
+  const tone = {};
+  for (const axis of TONE_AXES) {
+    const v = parseInt(document.getElementById(`tone_${axis}`).value);
+    if (v !== 0) tone[axis] = v;
+  }
+  return tone;
+}
+
+function resetTone() {
+  for (const axis of TONE_AXES) {
+    document.getElementById(`tone_${axis}`).value = '0';
+  }
 }
 
 // ── Analyze ──
@@ -356,7 +374,7 @@ async function genJourneyPrompt() {
   const style = document.getElementById('styleSelect').value;
   await fetchAndFlashPrompt('journeyPrompt', {
     pivot: journeyPath[0], near: [], far: [],
-    mode: 'journey', style, keywords, path: journeyPath,
+    mode: 'journey', style, keywords, path: journeyPath, tone: getTone(),
   });
 }
 
@@ -371,7 +389,7 @@ async function runExpand() {
       const res = await fetch(`${API}/expand`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, style, keywords }),
+        body: JSON.stringify({ text, style, keywords, tone: getTone() }),
       });
       const data = await res.json();
 

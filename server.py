@@ -10,6 +10,30 @@ from pydantic import BaseModel
 import random
 import re
 
+TONE_MAP: dict[str, dict[int, str]] = {
+    "brightness": {-3: "pitch black and lightless", -2: "very dark and gloomy", -1: "dim and shadowy", 1: "bright and luminous", 2: "radiant and dazzling", 3: "blindingly brilliant"},
+    "quietness":  {-3: "turbulent and chaotic", -2: "chaotic and loud", -1: "lively and dynamic", 1: "quiet and calm", 2: "serene and silent", 3: "deeply hushed and still"},
+    "mystery":    {-3: "completely mundane and everyday", -2: "mundane and ordinary", -1: "familiar and realistic", 1: "mysterious and uncanny", 2: "otherworldly and surreal", 3: "ethereal and transcendent"},
+    "warmth":     {-3: "extreme cold and arctic", -2: "freezing and icy", -1: "cool and crisp", 1: "warm and cozy", 2: "scorching and blazing", 3: "searing and volcanic"},
+    "era":        {-3: "primordial and prehistoric", -2: "ancient and archaic", -1: "historical and vintage", 1: "near-future", 2: "sci-fi future", 3: "far-future and post-human"},
+    "scale":      {-3: "microscopic and tiny", -2: "small and intimate", -1: "compact and contained", 1: "vast and expansive", 2: "grand and monumental", 3: "cosmic and infinite"},
+    "density":    {-3: "sparse and empty", -2: "open and airy", -1: "slightly sparse", 1: "somewhat dense", 2: "cluttered and intricate", 3: "overwhelmingly dense"},
+    "decay":      {-3: "brand new and pristine", -2: "fresh and untouched", -1: "slightly aged", 1: "weathered and worn", 2: "ruined and abandoned", 3: "collapsed and crumbled"},
+    "mood":       {-3: "peaceful and healing", -2: "calm and soothing", -1: "gentle and pleasant", 1: "slightly ominous", 2: "dark and foreboding", 3: "terrifying and dreadful"},
+    "color":      {-3: "monochrome and desaturated", -2: "faded and pale", -1: "muted and subdued", 1: "vivid and colorful", 2: "rich and saturated", 3: "intensely chromatic"},
+    "lighting":   {-3: "no light source, pitch black", -2: "faint moonlight or candlelight", -1: "dim indirect light", 1: "soft diffused light", 2: "dramatic directional light, backlit or side-lit", 3: "intense god rays or radiant spotlight"},
+    "spatial":    {-3: "sealed and claustrophobic, no escape", -2: "enclosed and confined", -1: "intimate and sheltered", 1: "open and airy", 2: "vast sweeping landscape", 3: "infinite boundless horizon"},
+    "clarity":    {-3: "thick impenetrable fog, zero visibility", -2: "heavy mist and haze", -1: "slightly hazy and atmospheric", 1: "clear and crisp air", 2: "crystal clear visibility", 3: "hyper-sharp and razor-clear"},
+}
+
+def build_tone_line(tone: dict) -> str:
+    parts = []
+    for axis, val in tone.items():
+        v = int(val)
+        if v != 0 and axis in TONE_MAP and v in TONE_MAP[axis]:
+            parts.append(TONE_MAP[axis][v])
+    return f"- Tone / atmosphere: {', '.join(parts)}" if parts else ""
+
 class PromptRequest(BaseModel):
     pivot: str
     near: list[str]
@@ -18,6 +42,7 @@ class PromptRequest(BaseModel):
     style: str = ""
     keywords: list[str] = []
     path: list[str] = []
+    tone: dict = {}
 
 class JourneyRequest(BaseModel):
     start: str
@@ -32,6 +57,7 @@ class ExpandRequest(BaseModel):
     style: str = ""
     keywords: list[str] = []
     topn: int = 5
+    tone: dict = {}
 
 class ArithmeticRequest(BaseModel):
     positive: list[str] = []
@@ -97,6 +123,7 @@ def generate_prompt(req: PromptRequest):
         return {"error": f"不明なモードです: {req.mode}"}
     style_line = f"- Art style / medium: {req.style}" if req.style else ""
     keyword_line = f"- Must include these concepts: {', '.join(req.keywords)}" if req.keywords else ""
+    tone_line = build_tone_line(req.tone)
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
@@ -109,6 +136,7 @@ Semantic instruction (Japanese):
 {instruction}
 {style_line}
 {keyword_line}
+{tone_line}
 
 Output exactly 2 lines, no extra text:
 Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>
@@ -182,6 +210,7 @@ def expand(req: ExpandRequest):
     )
     style_line = f"- Art style / medium: {req.style}" if req.style else ""
     keyword_line = f"- Must include these concepts: {', '.join(req.keywords)}" if req.keywords else ""
+    tone_line = build_tone_line(req.tone)
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
@@ -194,6 +223,7 @@ Word clusters (Japanese semantic space):
 {context_lines}
 {style_line}
 {keyword_line}
+{tone_line}
 
 Output exactly 2 lines, no extra text:
 Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>

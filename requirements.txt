@@ -4,3 +4,6 @@ unidic-lite
 fastapi
 uvicorn
 python-dotenv
+anthropic
+pytest
+httpx
