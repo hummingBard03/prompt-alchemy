@@ -207,7 +207,7 @@ def expand(req: ExpandRequest):
 
     word_map = {}
     for w in extracted:
-        word_map[w] = [s for s, _ in model.most_similar(w, topn=req.topn)]
+        word_map[w] = [s for s, _ in model.most_similar(w, topn=req.topn)][:req.topn]
 
     context_lines = "\n".join(
         f"・{w}: {', '.join(neighbors)}" for w, neighbors in word_map.items()
