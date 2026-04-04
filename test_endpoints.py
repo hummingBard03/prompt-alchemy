@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
-from server import TONE_MAP, build_tone_line
+from server import TONE_MAP, build_tone_line, _INSTRUCTIONS, pick_instruction
 
 
 # ── モックファクトリ ──────────────────────────────────────────────────────────
@@ -156,6 +156,40 @@ class TestToneMap:
         for axis, levels in TONE_MAP.items():
             for v, phrase in levels.items():
                 assert isinstance(phrase, str) and phrase, f"{axis}[{v}] が空または文字列でない"
+
+
+# ── _INSTRUCTIONS / pick_instruction ─────────────────────────────────────────
+
+class TestPickInstruction:
+    MODES = ["near", "far", "combo", "journey"]
+
+    def test_all_modes_present(self):
+        for mode in self.MODES:
+            assert mode in _INSTRUCTIONS
+
+    def test_each_mode_has_multiple_variants(self):
+        for mode in self.MODES:
+            assert len(_INSTRUCTIONS[mode]) >= 2, f"{mode} のバリアントが1種類しかない"
+
+    def test_near_contains_pivot_and_near(self):
+        result = pick_instruction("near", pivot="孤独", near="静寂, 霧")
+        assert "孤独" in result and "静寂" in result
+
+    def test_far_contains_pivot_and_far(self):
+        result = pick_instruction("far", pivot="孤独", far="賑わい, 祭り")
+        assert "孤独" in result and "賑わい" in result
+
+    def test_combo_contains_pivot_near_far(self):
+        result = pick_instruction("combo", pivot="孤独", near="静寂", far="賑わい")
+        assert "孤独" in result and "静寂" in result and "賑わい" in result
+
+    def test_journey_contains_start_end_path(self):
+        result = pick_instruction("journey", start="孤独", end="光", path="孤独 → 静寂 → 光")
+        assert "孤独" in result and "光" in result
+
+    def test_returns_different_variants(self):
+        results = {pick_instruction("near", pivot="孤独", near="静寂") for _ in range(30)}
+        assert len(results) > 1, "30回試行して1種類しか出なかった"
 
 
 # ── /random ───────────────────────────────────────────────────────────────────

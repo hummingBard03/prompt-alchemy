@@ -26,6 +26,43 @@ TONE_MAP: dict[str, dict[int, str]] = {
     "clarity":    {-3: "thick impenetrable fog, zero visibility", -2: "heavy mist and haze", -1: "slightly hazy and atmospheric", 1: "clear and crisp air", 2: "crystal clear visibility", 3: "hyper-sharp and razor-clear"},
 }
 
+_INSTRUCTIONS: dict[str, list[str]] = {
+    "near": [
+        "「{pivot}」と意味的に近い雰囲気を活かした情景を作ってください。近い単語: {near}",
+        "「{pivot}」の世界観を深掘りし、{near} の質感を情景に溶かし込んでください",
+        "「{pivot}」から連想される空間を、{near} の印象を手がかりに描写してください",
+        "「{pivot}」に共鳴する情景を、{near} の雰囲気を軸に構築してください",
+        "「{pivot}」の核にある感触を、{near} という言葉群を素材にして視覚化してください",
+    ],
+    "far": [
+        "「{pivot}」と対極にある要素を組み合わせた意外な情景を作ってください。対極の単語: {far}",
+        "「{pivot}」の対極にある {far} を衝突させ、予想外の情景を生み出してください",
+        "「{pivot}」と {far} の矛盾を逆手に取り、緊張感のある情景を描いてください",
+        "「{pivot}」が {far} の世界に迷い込んだとき、何が見えるかを描写してください",
+        "「{pivot}」と {far} の間にある距離を、一枚の情景として表現してください",
+    ],
+    "combo": [
+        "「{pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {near} / 遠い: {far}",
+        "「{pivot}」を核として、{near} の親密さと {far} の異質さが共存する情景を作ってください",
+        "「{pivot}」の周囲に {near} を配置し、そこへ {far} を侵入させた情景を描いてください",
+        "「{pivot}」を媒介に、{near} と {far} が予期せず交差する瞬間を切り取ってください",
+        "「{pivot}」という起点から、{near} の方向と {far} の方向に同時に広がる情景を構成してください",
+    ],
+    "journey": [
+        "「{start}」から「{end}」へと意味が移ろう情景を作ってください。経路の単語を情景の変化として使ってください。経路: {path}",
+        "「{start}」を出発点に、{path} を経由して「{end}」へと変容する一続きの情景を描いてください",
+        "「{start}」から「{end}」への旅を、{path} の各単語が場面転換の合図となるように描写してください",
+        "「{start}」の空気が {path} を経て「{end}」へと溶けていく過程を、連続した情景として表現してください",
+        "「{start}」→ {path} →「{end}」という意味の流れを、ひとつの情景が変容し続けるように描いてください",
+    ],
+}
+
+
+def pick_instruction(mode: str, **kwargs) -> str:
+    template = random.choice(_INSTRUCTIONS[mode])
+    return template.format(**kwargs)
+
+
 def build_tone_line(tone: dict) -> str:
     parts = []
     for axis, val in tone.items():
@@ -112,13 +149,17 @@ def generate_prompt(req: PromptRequest):
     if req.mode == "journey":
         if not req.path:
             return {"error": "journey モードには path が必要です"}
-        instruction = f"「{req.path[0]}」から「{req.path[-1]}」へと意味が移ろう情景を作ってください。経路の単語を情景の変化として使ってください。経路: {' → '.join(req.path)}"
+        instruction = pick_instruction("journey",
+            start=req.path[0], end=req.path[-1], path=" → ".join(req.path))
     elif req.mode == "near":
-        instruction = f"「{req.pivot}」と意味的に近い雰囲気を活かした情景を作ってください。近い単語: {', '.join(req.near)}"
+        instruction = pick_instruction("near",
+            pivot=req.pivot, near=", ".join(req.near))
     elif req.mode == "far":
-        instruction = f"「{req.pivot}」と対極にある要素を組み合わせた意外な情景を作ってください。対極の単語: {', '.join(req.far)}"
+        instruction = pick_instruction("far",
+            pivot=req.pivot, far=", ".join(req.far))
     elif req.mode == "combo":
-        instruction = f"「{req.pivot}」を中心に、近い単語と遠い単語を意外な形で組み合わせてください。近い: {', '.join(req.near)} / 遠い: {', '.join(req.far)}"
+        instruction = pick_instruction("combo",
+            pivot=req.pivot, near=", ".join(req.near), far=", ".join(req.far))
     else:
         return {"error": f"不明なモードです: {req.mode}"}
     style_line = f"- Art style / medium: {req.style}" if req.style else ""
