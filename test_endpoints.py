@@ -39,6 +39,27 @@ def make_client(scene="夕暮れの情景", prompt_text="foggy harbor, dusk, mut
     return c
 
 
+def make_eval_client(score=75, subject=8, composition=7, lighting=8, mood=7, detail=6,
+                     suggestions=None):
+    if suggestions is None:
+        suggestions = ["光源の方向を具体的に指定しましょう", "前景に要素を加えると構図が安定します", "色温度を明示すると精度が上がります"]
+    sug_lines = "\n".join(f"・{s}" for s in suggestions)
+    text = (
+        f"SCORE: {score}\n"
+        f"SUBJECT: {subject}\n"
+        f"COMPOSITION: {composition}\n"
+        f"LIGHTING: {lighting}\n"
+        f"MOOD: {mood}\n"
+        f"DETAIL: {detail}\n"
+        f"SUGGESTIONS:\n{sug_lines}"
+    )
+    msg = MagicMock()
+    msg.content = [MagicMock(text=text)]
+    c = MagicMock()
+    c.messages.create.return_value = msg
+    return c
+
+
 def make_word(surface, pos1):
     w = MagicMock()
     w.surface = surface
@@ -646,3 +667,159 @@ class TestExpand:
         res = client.post("/expand", json={"text": "夕暮れ夕暮れ港"})
         data = res.json()
         assert data["words"].count("夕暮れ") == 1
+
+
+# ── /evaluate ─────────────────────────────────────────────────────────────────
+
+class TestEvaluate:
+    VALID_PROMPT = "a foggy harbor at dusk, muted tones, melancholic atmosphere, soft diffused light"
+
+    def test_basic_success(self, client):
+        import server as srv
+        srv.client = make_eval_client()
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.status_code == 200
+        data = res.json()
+        assert "score" in data
+        assert "dimensions" in data
+        assert "suggestions" in data
+
+    def test_score_parsed_correctly(self, client):
+        import server as srv
+        srv.client = make_eval_client(score=72)
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.json()["score"] == 72
+
+    def test_score_boundary_zero(self, client):
+        import server as srv
+        srv.client = make_eval_client(score=0)
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.json()["score"] == 0
+
+    def test_score_boundary_hundred(self, client):
+        import server as srv
+        srv.client = make_eval_client(score=100)
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.json()["score"] == 100
+
+    def test_dimensions_has_all_keys(self, client):
+        import server as srv
+        srv.client = make_eval_client()
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        dims = res.json()["dimensions"]
+        for key in ["subject", "composition", "lighting", "mood", "detail"]:
+            assert key in dims, f"dimensions に '{key}' がない"
+
+    def test_dimension_values_parsed_correctly(self, client):
+        import server as srv
+        srv.client = make_eval_client(subject=8, composition=6, lighting=7, mood=9, detail=5)
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        dims = res.json()["dimensions"]
+        assert dims["subject"] == 8
+        assert dims["composition"] == 6
+        assert dims["lighting"] == 7
+        assert dims["mood"] == 9
+        assert dims["detail"] == 5
+
+    def test_suggestions_is_list(self, client):
+        import server as srv
+        srv.client = make_eval_client()
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert isinstance(res.json()["suggestions"], list)
+
+    def test_suggestions_count(self, client):
+        import server as srv
+        srv.client = make_eval_client(suggestions=["提案A", "提案B", "提案C"])
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert len(res.json()["suggestions"]) == 3
+
+    def test_suggestions_content_preserved(self, client):
+        import server as srv
+        suggestions = ["光源を指定しましょう", "前景を追加しましょう", "色温度を明示しましょう"]
+        srv.client = make_eval_client(suggestions=suggestions)
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.json()["suggestions"] == suggestions
+
+    def test_short_prompt_returns_error(self, client):
+        res = client.post("/evaluate", json={"prompt": "short"})
+        assert res.status_code == 200
+        assert "error" in res.json()
+
+    def test_empty_prompt_returns_error(self, client):
+        res = client.post("/evaluate", json={"prompt": ""})
+        assert res.status_code == 200
+        assert "error" in res.json()
+
+    def test_whitespace_only_prompt_returns_error(self, client):
+        res = client.post("/evaluate", json={"prompt": "   "})
+        assert res.status_code == 200
+        assert "error" in res.json()
+
+    def test_prompt_included_in_claude_call(self, client):
+        import server as srv
+        srv.client = make_eval_client()
+        client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
+        assert self.VALID_PROMPT in content
+
+    def test_scene_ja_included_in_claude_call_when_provided(self, client):
+        import server as srv
+        srv.client = make_eval_client()
+        client.post("/evaluate", json={"prompt": self.VALID_PROMPT, "scene_ja": "霧の港の夕景"})
+        content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
+        assert "霧の港の夕景" in content
+
+    def test_scene_ja_optional(self, client):
+        import server as srv
+        srv.client = make_eval_client()
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.status_code == 200
+        assert "error" not in res.json()
+
+    def test_scene_ja_absent_when_not_provided(self, client):
+        import server as srv
+        srv.client = make_eval_client()
+        client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
+        # scene_ja が省略されたとき Japanese scene description セクションは含まれない
+        assert "Japanese scene description" not in content
+
+    def test_claude_api_error_returns_error(self, client):
+        import server as srv
+        srv.client.messages.create.side_effect = Exception("API down")
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.status_code == 200
+        assert "error" in res.json()
+        srv.client.messages.create.side_effect = None
+
+    def test_malformed_response_returns_default_structure(self, client):
+        import server as srv
+        msg = MagicMock()
+        msg.content = [MagicMock(text="some random text without expected format")]
+        srv.client.messages.create.return_value = msg
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        assert res.status_code == 200
+        data = res.json()
+        # エラーにはならず、デフォルト値（score=0）が返る
+        assert "score" in data
+        assert data["score"] == 0
+
+    def test_partial_response_parsed(self, client):
+        import server as srv
+        msg = MagicMock()
+        msg.content = [MagicMock(text="SCORE: 55\nSUBJECT: 6\nSUGGESTIONS:\n・色彩を豊かに")]
+        srv.client.messages.create.return_value = msg
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        data = res.json()
+        assert data["score"] == 55
+        assert data["dimensions"].get("subject") == 6
+        assert len(data["suggestions"]) == 1
+
+    def test_suggestions_strip_bullet(self, client):
+        import server as srv
+        suggestions = ["光源を指定して"]
+        srv.client = make_eval_client(suggestions=suggestions)
+        res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
+        # ・ プレフィックスが除去されていること
+        for s in res.json()["suggestions"]:
+            assert not s.startswith("・")
