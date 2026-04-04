@@ -243,6 +243,75 @@ function addAnalyzedWords(words) {
   ).join('');
 }
 
+// ── Evaluate ──
+async function evaluatePrompt(promptId) {
+  const promptEl = document.getElementById(promptId);
+  const sceneEl = document.getElementById(promptId + 'Scene');
+  const evalEl = document.getElementById(promptId + 'Eval');
+  if (!promptEl || !evalEl) return;
+
+  const promptText = promptEl.textContent.trim();
+  const sceneText = sceneEl ? sceneEl.textContent.trim() : '';
+  if (!promptText || promptText === '生成中…' || promptText.length < 10) return;
+
+  evalEl.style.display = 'block';
+  evalEl.innerHTML = '<span class="eval-loading">評価中…</span>';
+
+  try {
+    const res = await fetch(`${API}/evaluate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: promptText, scene_ja: sceneText }),
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      evalEl.innerHTML = `<span class="arith-error">${data.error}</span>`;
+      return;
+    }
+
+    const dims = data.dimensions || {};
+    const dimDefs = [
+      { key: 'subject',     label: '被写体',  color: '--green'  },
+      { key: 'composition', label: '構図',    color: '--blue'   },
+      { key: 'lighting',    label: '光',      color: '--yellow' },
+      { key: 'mood',        label: '雰囲気',  color: '--pink'   },
+      { key: 'detail',      label: '詳細度',  color: '--gold'   },
+    ];
+
+    const dimsHtml = dimDefs.map(({ key, label, color }) => {
+      const val = dims[key] ?? 0;
+      return `
+        <div class="eval-dim">
+          <span class="eval-dim-label">${label}</span>
+          <div class="eval-bar-wrap">
+            <div class="eval-bar" style="width:${val * 10}%;background:var(${color})"></div>
+          </div>
+          <span class="eval-dim-score">${val}</span>
+        </div>`;
+    }).join('');
+
+    const suggestions = data.suggestions || [];
+    const suggestionsHtml = suggestions.length
+      ? `<div class="eval-suggestions-label">// 改善提案</div>
+         <ul class="eval-suggestions">${suggestions.map(s => `<li class="eval-suggestion">・${s}</li>`).join('')}</ul>`
+      : '';
+
+    const score = data.score ?? 0;
+    const scoreColor = score >= 80 ? 'var(--green)' : score >= 60 ? 'var(--gold)' : 'var(--pink)';
+
+    evalEl.innerHTML = `
+      <div class="eval-header">
+        <span class="eval-label">// 品質評価</span>
+        <span class="eval-score" style="color:${scoreColor}">${score}<span class="eval-score-max">/100</span></span>
+      </div>
+      <div class="eval-dims">${dimsHtml}</div>
+      ${suggestionsHtml}`;
+  } catch(e) {
+    evalEl.innerHTML = '<span class="arith-error">評価に失敗しました</span>';
+  }
+}
+
 // ── Arithmetic ──
 function addArith(side) {
   const arr = side === 'pos' ? arithPos : arithNeg;
