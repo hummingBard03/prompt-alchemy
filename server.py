@@ -64,6 +64,10 @@ class ArithmeticRequest(BaseModel):
     negative: list[str] = []
     topn: int = 8
 
+class EvaluateRequest(BaseModel):
+    prompt: str
+    scene_ja: str = ""
+
 load_dotenv()
 
 app = FastAPI()
@@ -241,6 +245,69 @@ Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and vi
         elif line.startswith("PROMPT:"):
             prompt = line[len("PROMPT:"):].strip()
     return {"words": extracted, "word_map": word_map, "prompt": prompt, "scene_ja": scene_ja}
+
+@app.post("/evaluate")
+def evaluate_prompt(req: EvaluateRequest):
+    if not req.prompt or len(req.prompt.strip()) < 10:
+        return {"error": "プロンプトが短すぎます"}
+    scene_line = f"\nJapanese scene description:\n{req.scene_ja}" if req.scene_ja else ""
+    try:
+        message = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=600,
+            messages=[{
+                "role": "user",
+                "content": f"""You are an expert evaluator of AI image generation prompts.
+
+Evaluate the following prompt for AI image generation quality.
+
+English prompt:
+{req.prompt}{scene_line}
+
+Output exactly in this format (no extra text, no markdown):
+SCORE: <0-100 overall score>
+SUBJECT: <0-10 subject clarity score>
+COMPOSITION: <0-10 composition/framing score>
+LIGHTING: <0-10 lighting quality score>
+MOOD: <0-10 atmosphere/mood score>
+DETAIL: <0-10 specificity/detail score>
+SUGGESTIONS:
+・<concrete improvement suggestion in Japanese, 1 sentence>
+・<concrete improvement suggestion in Japanese, 1 sentence>
+・<concrete improvement suggestion in Japanese, 1 sentence>"""
+            }]
+        )
+    except Exception as e:
+        return {"error": f"評価に失敗しました: {e}"}
+
+    raw = message.content[0].text
+    result: dict = {"score": 0, "dimensions": {}, "suggestions": []}
+    in_suggestions = False
+    for line in raw.splitlines():
+        line = line.strip()
+        if line.startswith("SCORE:"):
+            try: result["score"] = int(line.split(":", 1)[1].strip())
+            except: pass
+        elif line.startswith("SUBJECT:"):
+            try: result["dimensions"]["subject"] = int(line.split(":", 1)[1].strip())
+            except: pass
+        elif line.startswith("COMPOSITION:"):
+            try: result["dimensions"]["composition"] = int(line.split(":", 1)[1].strip())
+            except: pass
+        elif line.startswith("LIGHTING:"):
+            try: result["dimensions"]["lighting"] = int(line.split(":", 1)[1].strip())
+            except: pass
+        elif line.startswith("MOOD:"):
+            try: result["dimensions"]["mood"] = int(line.split(":", 1)[1].strip())
+            except: pass
+        elif line.startswith("DETAIL:"):
+            try: result["dimensions"]["detail"] = int(line.split(":", 1)[1].strip())
+            except: pass
+        elif line == "SUGGESTIONS:":
+            in_suggestions = True
+        elif in_suggestions and line.startswith("・"):
+            result["suggestions"].append(line[1:].strip())
+    return result
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):

@@ -142,7 +142,9 @@
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('nearPrompt')">コピー</button>
                 <button class="btn-ghost btn-sm" onclick="analyzePrompt('nearPrompt')">単語を抽出</button>
+                <button class="btn-ghost btn-sm" onclick="evaluatePrompt('nearPrompt')">品質評価</button>
               </div>
+              <div class="eval-card" id="nearPromptEval" style="display:none"></div>
             </div>
           </div>
 
@@ -162,7 +164,9 @@
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('farPrompt')">コピー</button>
                 <button class="btn-ghost btn-sm" onclick="analyzePrompt('farPrompt')">単語を抽出</button>
+                <button class="btn-ghost btn-sm" onclick="evaluatePrompt('farPrompt')">品質評価</button>
               </div>
+              <div class="eval-card" id="farPromptEval" style="display:none"></div>
             </div>
           </div>
 
@@ -182,7 +186,9 @@
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('comboPrompt')">コピー</button>
                 <button class="btn-ghost btn-sm" onclick="analyzePrompt('comboPrompt')">単語を抽出</button>
+                <button class="btn-ghost btn-sm" onclick="evaluatePrompt('comboPrompt')">品質評価</button>
               </div>
+              <div class="eval-card" id="comboPromptEval" style="display:none"></div>
             </div>
           </div>
         </div>
@@ -425,7 +431,9 @@
               <div class="prompt-actions">
                 <button class="btn-ghost btn-sm" onclick="copyText('journeyPrompt')">コピー</button>
                 <button class="btn-ghost btn-sm" onclick="analyzePrompt('journeyPrompt')">単語を抽出</button>
+                <button class="btn-ghost btn-sm" onclick="evaluatePrompt('journeyPrompt')">品質評価</button>
               </div>
+              <div class="eval-card" id="journeyPromptEval" style="display:none"></div>
             </div>
           </div>
         </div>
@@ -489,7 +497,9 @@
             <div class="prompt-actions">
               <button class="btn-ghost btn-sm" onclick="copyText('expandPrompt')">コピー</button>
               <button class="btn-ghost btn-sm" onclick="runExpand()">再生成</button>
+              <button class="btn-ghost btn-sm" onclick="evaluatePrompt('expandPrompt')">品質評価</button>
             </div>
+            <div class="eval-card" id="expandPromptEval" style="display:none"></div>
           </div>
         </div>
       </div>
