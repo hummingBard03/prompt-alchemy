@@ -1,4 +1,6 @@
 import os
+import json
+from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -10,6 +12,8 @@ from pydantic import BaseModel
 import random
 import re
 
+# 各トーン軸に対して、-3〜+3 の値を英語の形容詞フレーズにマッピングするテーブル。
+# 値が 0 のときは使用しない。
 TONE_MAP: dict[str, dict[int, str]] = {
     "brightness": {-3: "pitch black and lightless", -2: "very dark and gloomy", -1: "dim and shadowy", 1: "bright and luminous", 2: "radiant and dazzling", 3: "blindingly brilliant"},
     "quietness":  {-3: "turbulent and chaotic", -2: "chaotic and loud", -1: "lively and dynamic", 1: "quiet and calm", 2: "serene and silent", 3: "deeply hushed and still"},
@@ -26,6 +30,9 @@ TONE_MAP: dict[str, dict[int, str]] = {
     "clarity":    {-3: "thick impenetrable fog, zero visibility", -2: "heavy mist and haze", -1: "slightly hazy and atmospheric", 1: "clear and crisp air", 2: "crystal clear visibility", 3: "hyper-sharp and razor-clear"},
 }
 
+# プロンプト生成モードごとの指示文テンプレート。
+# 毎回ランダムに1つ選ぶことで、同じ入力でも多様な出力を得る。
+# キー: "near"（類似語活用）、"far"（対極語活用）、"combo"（両方を組み合わせ）、"journey"（単語間の旅）
 _INSTRUCTIONS: dict[str, list[str]] = {
     "near": [
         "「{pivot}」と意味的に近い雰囲気を活かした情景を作ってください。近い単語: {near}",
@@ -59,11 +66,33 @@ _INSTRUCTIONS: dict[str, list[str]] = {
 
 
 def pick_instruction(mode: str, **kwargs) -> str:
+    """指定モードの指示文テンプレートをランダムに選び、プレースホルダーを埋めて返す。
+
+    Args:
+        mode: 生成モード。"near" | "far" | "combo" | "journey" のいずれか。
+        **kwargs: テンプレート内のプレースホルダーに対応するキーワード引数。
+                  near/far/combo モードでは pivot・near・far、
+                  journey モードでは start・end・path を渡す。
+
+    Returns:
+        プレースホルダーを埋めた日本語の指示文。
+    """
     template = random.choice(_INSTRUCTIONS[mode])
     return template.format(**kwargs)
 
 
 def build_tone_line(tone: dict) -> str:
+    """tone 辞書（軸名 → -3〜3 の整数値）を、Claude へ渡す英語の雰囲気指示行に変換する。
+
+    値が 0 の軸、または TONE_MAP に存在しない軸は無視する。
+
+    Args:
+        tone: トーン軸名をキー、強度値（-3〜3 の整数）を値とする辞書。
+
+    Returns:
+        有効な軸が1つ以上あれば "- Tone / atmosphere: ..." 形式の文字列、
+        なければ空文字列。
+    """
     parts = []
     for axis, val in tone.items():
         v = int(val)
@@ -71,66 +100,123 @@ def build_tone_line(tone: dict) -> str:
             parts.append(TONE_MAP[axis][v])
     return f"- Tone / atmosphere: {', '.join(parts)}" if parts else ""
 
+# --- リクエストスキーマ ---
+
 class PromptRequest(BaseModel):
+    """POST /prompt のリクエスト。pivot を中心に near/far の単語群からプロンプトを生成する。"""
     pivot: str
     near: list[str]
     far: list[str]
-    mode: str = "combo"
-    style: str = ""
-    keywords: list[str] = []
-    path: list[str] = []
-    tone: dict = {}
+    mode: str = "combo"   # "near" | "far" | "combo" | "journey"
+    style: str = ""        # 画風・媒体の指定（例: "oil painting"）
+    keywords: list[str] = []  # 必ず含めるコンセプト
+    path: list[str] = []  # journey モード用の経路単語リスト
+    tone: dict = {}        # トーン軸 → 強度値（-3〜3）
 
 class JourneyRequest(BaseModel):
+    """POST /journey のリクエスト。start〜end 間を word2vec ベクトル補間で探索する。"""
     start: str
     end: str
-    steps: int = 4
+    steps: int = 4  # start と end の間に挿入する中間単語数
 
 class AnalyzeRequest(BaseModel):
+    """POST /analyze のリクエスト。日本語テキストから名詞・形容詞・動詞を抽出する。"""
     text: str
 
 class ExpandRequest(BaseModel):
+    """POST /expand のリクエスト。日本語テキストを意味的に展開してプロンプトを生成する。"""
     text: str
     style: str = ""
     keywords: list[str] = []
-    topn: int = 5
+    topn: int = 5   # 各単語から取得する類似語の数
     tone: dict = {}
 
 class ArithmeticRequest(BaseModel):
-    positive: list[str] = []
-    negative: list[str] = []
+    """POST /arithmetic のリクエスト。単語ベクトルの加減算で類似語を探索する。"""
+    positive: list[str] = []  # 加算する単語リスト
+    negative: list[str] = []  # 減算する単語リスト
     topn: int = 8
 
 class EvaluateRequest(BaseModel):
+    """POST /evaluate のリクエスト。英語プロンプトの品質をスコアリングする。"""
     prompt: str
-    scene_ja: str = ""
+    scene_ja: str = ""  # 日本語の情景説明（省略可）
 
 load_dotenv()
 
+# ログの出力先パス（環境変数 LOG_PATH で上書き可）
+LOG_PATH = os.environ.get("LOG_PATH", "prompts.log")
+
+def write_log(endpoint: str, params: dict, scene_ja: str, prompt: str):
+    """生成結果を JSONL 形式でログファイルに追記する。
+
+    Args:
+        endpoint: 呼び出し元のエンドポイントパス（例: "/prompt"）。
+        params: リクエストパラメータ全体の辞書。
+        scene_ja: 生成された日本語の情景説明。
+        prompt: 生成された英語のプロンプトタグ列。
+    """
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "endpoint": endpoint,
+        "params": params,
+        "scene_ja": scene_ja,
+        "prompt": prompt,
+    }
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
 app = FastAPI()
+# フロントエンド（任意のオリジン）からの API 呼び出しを許可する
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# word2vec モデルの読み込み（起動時に一度だけ実行）
 model = KeyedVectors.load(os.environ["MODEL_PATH"])
+# Anthropic クライアントの初期化
 client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
+# 日本語形態素解析器の初期化
 tagger = fugashi.Tagger()
 
 def missing(*words):
-    """未登録単語があれば {"error": ...} を返す。なければ None。"""
+    """未登録単語があれば {"error": ...} を返す。なければ None。
+
+    Args:
+        *words: word2vec モデルへの登録有無を確認する単語（可変長）。
+
+    Returns:
+        未登録単語が1つでもあれば {"error": "「{word}」が見つかりません"} の辞書、
+        すべて登録済みであれば None。
+    """
     for w in words:
         if w not in model:
             return {"error": f"「{w}」が見つかりません"}
     return None
 
+# ランダム単語候補: 語彙先頭50000語から、日本語を含む2文字以上の単語のみ抽出
 _jp = re.compile(r'[\u3040-\u9fff]')
 _random_vocab = [w for w in list(model.key_to_index)[:50000] if len(w) >= 2 and _jp.search(w)]
 
 @app.get("/random")
 def random_word():
+    """語彙から日本語単語をランダムに1つ返す。
+
+    Returns:
+        {"word": str} — ランダムに選ばれた日本語単語。
+    """
     return {"word": random.choice(_random_vocab)}
 
 @app.get("/similar")
 def similar(word: str, topn: int = 10):
+    """word に意味的に近い単語を topn 件返す。結果はシャッフルして多様性を出す。
+
+    Args:
+        word: 検索対象の単語。
+        topn: 返す類似語の件数（デフォルト 10）。
+
+    Returns:
+        {"results": [(単語, コサイン類似度), ...]} または {"error": str}。
+    """
     if err := missing(word): return err
     raw = model.most_similar(word, topn=topn * 3)
     random.shuffle(raw)
@@ -138,6 +224,15 @@ def similar(word: str, topn: int = 10):
 
 @app.get("/distant")
 def distant(word: str, topn: int = 10):
+    """word と意味的に遠い（対極の）単語を topn 件返す。結果はシャッフルして多様性を出す。
+
+    Args:
+        word: 検索対象の単語。
+        topn: 返す対極語の件数（デフォルト 10）。
+
+    Returns:
+        {"results": [(単語, コサイン類似度), ...]} または {"error": str}。
+    """
     if err := missing(word): return err
     raw = model.most_similar(negative=[word], topn=topn * 3)
     random.shuffle(raw)
@@ -145,11 +240,30 @@ def distant(word: str, topn: int = 10):
 
 @app.get("/similarity")
 def similarity(word1: str, word2: str):
+    """2つの単語間のコサイン類似度（-1〜1）を返す。
+
+    Args:
+        word1: 比較する単語（一方）。
+        word2: 比較する単語（もう一方）。
+
+    Returns:
+        {"score": float} — コサイン類似度（-1〜1）または {"error": str}。
+    """
     if err := missing(word1, word2): return err
     return {"score": float(model.similarity(word1, word2))}
 
 @app.post("/prompt")
 def generate_prompt(req: PromptRequest):
+    """pivot・near/far 単語・モードをもとに Claude で画像生成プロンプトを生成する。
+
+    Args:
+        req: PromptRequest — pivot・near・far・mode・style・keywords・path・tone を含む。
+
+    Returns:
+        {"prompt": str, "scene_ja": str} — 英語タグ列と日本語情景説明、
+        またはエラー時 {"error": str}。
+    """
+    # モードに応じて Claude への指示文を組み立てる
     if req.mode == "journey":
         if not req.path:
             return {"error": "journey モードには path が必要です"}
@@ -190,6 +304,7 @@ Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and vi
         )
     except Exception as e:
         return {"error": f"プロンプト生成に失敗しました: {e}"}
+    # Claude の応答から SCENE 行と PROMPT 行をパースする
     raw = message.content[0].text
     scene_ja, prompt = "", raw
     for line in raw.splitlines():
@@ -197,14 +312,27 @@ Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and vi
             scene_ja = line[len("SCENE:"):].strip()
         elif line.startswith("PROMPT:"):
             prompt = line[len("PROMPT:"):].strip()
+    write_log("/prompt", {"pivot": req.pivot, "near": req.near, "far": req.far, "mode": req.mode, "style": req.style, "keywords": req.keywords, "path": req.path, "tone": req.tone}, scene_ja, prompt)
     return {"prompt": prompt, "scene_ja": scene_ja}
 
 @app.post("/arithmetic")
 def arithmetic(req: ArithmeticRequest):
+    """単語ベクトルの加減算（例: 王 - 男 + 女 ≈ 女王）で関連語を返す。
+
+    positive/negative の単語自体は結果から除外する。
+
+    Args:
+        req: ArithmeticRequest — positive（加算語リスト）・negative（減算語リスト）・topn。
+
+    Returns:
+        {"results": [(単語, スコア), ...]} — 入力語を除いたシャッフル済み類似語リスト、
+        またはエラー時 {"error": str}。
+    """
     if not req.positive and not req.negative:
         return {"error": "単語を入力してください"}
     if err := missing(*req.positive, *req.negative): return err
     raw = model.most_similar(positive=req.positive or None, negative=req.negative or None, topn=req.topn * 3)
+    # 入力単語が結果に混入しないようフィルタリングしてからシャッフル
     exclude = set(req.positive + req.negative)
     filtered = [(w, s) for w, s in raw if w not in exclude]
     random.shuffle(filtered)
@@ -212,6 +340,17 @@ def arithmetic(req: ArithmeticRequest):
 
 @app.post("/journey")
 def journey(req: JourneyRequest):
+    """start〜end 間をベクトル線形補間で探索し、意味的な「旅の経路」となる単語列を返す。
+
+    補間点ごとに最近傍の未訪問単語を選ぶことで、重複なく自然な経路を生成する。
+
+    Args:
+        req: JourneyRequest — start（起点）・end（終点）・steps（中間ステップ数）。
+
+    Returns:
+        {"path": [str, ...]} — [start, 中間語, ..., end] の単語リスト、
+        またはエラー時 {"error": str}。
+    """
     if err := missing(req.start, req.end): return err
     if req.start == req.end:
         return {"error": "起点と終点が同じ単語です"}
@@ -221,6 +360,7 @@ def journey(req: JourneyRequest):
     visited = {req.start, req.end}
     path = [req.start]
 
+    # steps 個の中間点を線形補間で配置し、各点に最近傍単語を割り当てる
     for i in range(1, req.steps + 1):
         t = i / (req.steps + 1)
         interp = (1.0 - t) * start_vec + t * end_vec
@@ -235,17 +375,29 @@ def journey(req: JourneyRequest):
 
 @app.post("/expand")
 def expand(req: ExpandRequest):
+    """日本語テキストを形態素解析して主要語を抽出し、各語の類似語クラスタをもとに Claude でプロンプトを生成する。
+
+    Args:
+        req: ExpandRequest — text・style・keywords・topn・tone を含む。
+
+    Returns:
+        {"words": [str], "word_map": {str: [str]}, "prompt": str, "scene_ja": str} —
+        抽出語・類似語マップ・英語タグ列・日本語情景説明、
+        またはエラー時 {"error": str}。
+    """
+    # 名詞・形容詞・動詞のうち2文字以上でモデルに登録されている語を抽出（最大6語）
     extracted = []
     for word in tagger(req.text):
         pos = word.feature.pos1
         surface = word.surface
         if pos in ["名詞", "形容詞", "動詞"] and len(surface) >= 2 and surface in model:
             extracted.append(surface)
-    extracted = list(dict.fromkeys(extracted))[:6]
+    extracted = list(dict.fromkeys(extracted))[:6]  # 出現順を保ちつつ重複排除
 
     if not extracted:
         return {"error": "モデルに登録された単語が見つかりませんでした"}
 
+    # 各抽出語の類似語リストを取得
     word_map = {}
     for w in extracted:
         word_map[w] = [s for s, _ in model.most_similar(w, topn=req.topn)][:req.topn]
@@ -278,6 +430,7 @@ Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and vi
     except Exception as e:
         return {"error": f"プロンプト生成に失敗しました: {e}"}
 
+    # Claude の応答から SCENE 行と PROMPT 行をパースする
     raw = message.content[0].text
     scene_ja, prompt = "", raw
     for line in raw.splitlines():
@@ -285,10 +438,30 @@ Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and vi
             scene_ja = line[len("SCENE:"):].strip()
         elif line.startswith("PROMPT:"):
             prompt = line[len("PROMPT:"):].strip()
+    write_log("/expand", {"text": req.text, "style": req.style, "keywords": req.keywords, "topn": req.topn, "tone": req.tone}, scene_ja, prompt)
     return {"words": extracted, "word_map": word_map, "prompt": prompt, "scene_ja": scene_ja}
 
 @app.post("/evaluate")
 def evaluate_prompt(req: EvaluateRequest):
+    """英語プロンプトを Claude で評価し、総合スコア・5次元スコア・改善提案を返す。
+
+    Args:
+        req: EvaluateRequest — prompt（英語プロンプト）・scene_ja（日本語情景説明、省略可）。
+
+    Returns:
+        {
+            "score": int,                          # 総合スコア（0〜100）
+            "dimensions": {                        # 各次元のスコア（0〜10）
+                "subject": int,
+                "composition": int,
+                "lighting": int,
+                "mood": int,
+                "detail": int,
+            },
+            "suggestions": [str, ...],             # 日本語の改善提案（最大3件）
+        }
+        またはエラー時 {"error": str}。
+    """
     if not req.prompt or len(req.prompt.strip()) < 10:
         return {"error": "プロンプトが短すぎます"}
     scene_line = f"\nJapanese scene description:\n{req.scene_ja}" if req.scene_ja else ""
@@ -321,6 +494,7 @@ SUGGESTIONS:
     except Exception as e:
         return {"error": f"評価に失敗しました: {e}"}
 
+    # Claude の応答を行ごとにパースして結果辞書に格納する
     raw = message.content[0].text
     result: dict = {"score": 0, "dimensions": {}, "suggestions": []}
     in_suggestions = False
@@ -352,6 +526,16 @@ SUGGESTIONS:
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):
+    """日本語テキストから名詞・形容詞・動詞（2文字以上）を抽出して返す。
+
+    /expand の事前確認用途を想定。word2vec への登録有無は問わない。
+
+    Args:
+        req: AnalyzeRequest — text（解析対象の日本語テキスト）。
+
+    Returns:
+        {"words": [str, ...]} — 重複を除いた抽出語リスト。
+    """
     words = []
     for word in tagger(req.text):
         pos = word.feature.pos1
@@ -360,6 +544,7 @@ def analyze(req: AnalyzeRequest):
             words.append(surface)
     return {"words": list(set(words))}
 
+# 静的ファイル（フロントエンド）をルートにマウント
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":

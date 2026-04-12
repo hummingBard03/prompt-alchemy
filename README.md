@@ -23,6 +23,7 @@ prompt-alchemy/
 ├── style.css        # スタイル
 ├── app.js           # フロントエンドロジック
 ├── requirements.txt # Python ライブラリ一覧
+├── prompts.log      # 生成プロンプトのログ（JSONL、Git 管理外）
 ├── .env             # 環境変数（Git 管理外）
 └── README.md
 ```
@@ -53,14 +54,18 @@ chive-1.2-mc15.kv.vectors.npy
 ```
 ANTHROPIC_API_KEY=sk-ant-...
 MODEL_PATH=chive-1.2-mc15.kv
+PORT=8000
+LOG_PATH=prompts.log
 ```
+
+`LOG_PATH` は省略可。省略するとカレントディレクトリの `prompts.log` に書き込まれる。
 
 `.env` は `.gitignore` に含まれているのでリポジトリには上がりません。
 
 ## 起動
 
 ```bash
-uvicorn server:app --reload
+python server.py
 ```
 
 ブラウザで `http://localhost:8000` を開く。
@@ -73,6 +78,24 @@ uvicorn server:app --reload
 | GET | `/similar?word=孤独&topn=8` | 意味的に近い単語を返す |
 | GET | `/distant?word=孤独&topn=8` | 意味的に遠い単語を返す |
 | GET | `/similarity?word1=霧&word2=煙` | 2単語の類似度スコアを返す |
+
+#### GET /random
+
+```json
+{ "word": "夕暮れ" }
+```
+
+#### GET /similar, /distant
+
+```json
+{ "results": [["黄昏", 0.91], ["薄暮", 0.87], ...] }
+```
+
+#### GET /similarity
+
+```json
+{ "score": 0.83 }
+```
 | POST | `/prompt` | Claude API でプロンプトを生成する |
 | POST | `/arithmetic` | ベクトル演算で近い単語を返す |
 | POST | `/journey` | 起点から終点への意味的経路を返す |
@@ -93,6 +116,13 @@ uvicorn server:app --reload
   "path": [],
   "tone": { "brightness": -1, "mystery": 2 }
 }
+```
+
+- `style`: アートスタイル・画材（省略可）
+- `keywords`: 必ず含めたい概念のリスト（省略可）
+- `path`: `journey` モード時に使用する経路の単語リスト
+
+```json
 ```
 
 レスポンス:
@@ -161,6 +191,12 @@ uvicorn server:app --reload
 
 ```json
 { "text": "霧の中に孤独が佇む" }
+```
+
+レスポンス:
+
+```json
+{ "words": ["霧", "孤独"] }
 ```
 
 ### POST /expand

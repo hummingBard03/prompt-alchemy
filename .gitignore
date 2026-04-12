@@ -21,6 +21,7 @@ Thumbs.db
 *.swo
 
 .env
+*.log
 
 *.md
 !README.md
