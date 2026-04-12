@@ -699,6 +699,106 @@ async function runExpand() {
   });
 }
 
+// ── Log History ──
+
+// 履歴タブを一度でも読み込んだかのフラグ
+let logLoaded = false;
+
+/**
+ * HTML 特殊文字をエスケープして XSS を防ぐ。
+ * @param {string} s - エスケープ対象の文字列。
+ * @returns {string} エスケープ済み文字列。
+ */
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = String(s ?? '');
+  return d.innerHTML;
+}
+
+/**
+ * onclick 属性用にシングルクォートをエスケープする。
+ * @param {string} s - エスケープ対象の文字列。
+ * @returns {string} エスケープ済み文字列。
+ */
+function escAttr(s) {
+  return String(s ?? '').replace(/'/g, "\\'");
+}
+
+/**
+ * /history API から生成履歴を取得し、logEntries に描画する。
+ * logSearchInput の値を検索クエリとして使用する。
+ * @returns {Promise<void>}
+ */
+async function loadLogHistory() {
+  const q = document.getElementById('logSearchInput').value.trim();
+  const initMsg = document.getElementById('logInitMsg');
+  const entriesEl = document.getElementById('logEntries');
+
+  initMsg.style.display = 'none';
+  entriesEl.style.display = 'flex';
+  entriesEl.innerHTML = '<span class="eval-loading" style="padding:2rem 0;text-align:center">読み込み中…</span>';
+
+  try {
+    const url = `${API}/history?limit=50${q ? '&q=' + encodeURIComponent(q) : ''}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data.entries || data.entries.length === 0) {
+      entriesEl.innerHTML = '<span class="tool-init-msg">履歴がありません</span>';
+      return;
+    }
+
+    entriesEl.innerHTML = data.entries.map(renderLogEntry).join('');
+  } catch(e) {
+    entriesEl.innerHTML = '<span class="arith-error">読み込みに失敗しました</span>';
+  }
+
+  logLoaded = true;
+}
+
+/**
+ * ログエントリを HTML カードとして描画する。
+ * プロンプト要素には一意の ID を付与し、既存の evaluatePrompt / copyText と連携する。
+ * @param {Object} entry - ログエントリ（timestamp / endpoint / params / scene_ja / prompt）。
+ * @returns {string} カードの HTML 文字列。
+ */
+function renderLogEntry(entry) {
+  const ts = new Date(entry.timestamp);
+  const dateStr = ts.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', timeZone: 'Asia/Tokyo' });
+  const timeStr = ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo' });
+
+  const sourceLabel = { '/prompt': '検索', '/expand': '文章展開' }[entry.endpoint] ?? entry.endpoint;
+
+  const scene = entry.scene_ja ?? '';
+  const prompt = entry.prompt ?? '';
+  // 一意な要素 ID を生成（タイムスタンプ + ランダム接尾辞）
+  const pid = 'log-' + ts.getTime() + '-' + Math.random().toString(36).slice(2, 6);
+
+  const pivotWord = entry.params?.pivot ?? '';
+  const reuseBtn = pivotWord
+    ? `<button class="btn-ghost btn-sm" onclick="searchWord('${escAttr(pivotWord)}')">「${esc(pivotWord)}」で再検索</button>`
+    : '';
+
+  return `
+    <div class="log-entry-card">
+      <div class="log-entry-header">
+        <span class="log-entry-date">${esc(dateStr)} ${esc(timeStr)}</span>
+        <span class="log-entry-source">${esc(sourceLabel)}</span>
+        ${pivotWord ? `<span class="log-entry-pivot">${esc(pivotWord)}</span>` : ''}
+      </div>
+      <div class="log-entry-scene">${esc(scene)}</div>
+      <!-- evaluatePrompt が ${pid}Scene を参照するため hidden 要素を置く -->
+      <div id="${pid}Scene" style="display:none">${esc(scene)}</div>
+      <div class="log-entry-prompt" id="${pid}">${esc(prompt)}</div>
+      <div class="prompt-actions">
+        <button class="btn-ghost btn-sm" onclick="copyText('${pid}')">コピー</button>
+        <button class="btn-ghost btn-sm" onclick="evaluatePrompt('${pid}')">品質評価</button>
+        ${reuseBtn}
+      </div>
+      <div class="eval-card" id="${pid}Eval" style="display:none"></div>
+    </div>`;
+}
+
 // ── Tabs ──
 
 /**
@@ -710,6 +810,8 @@ function switchMainTab(btn) {
   document.querySelectorAll('.main-tab-pane').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById(btn.dataset.tab).classList.add('active');
+  // 生成履歴タブを初めて開いたとき自動読み込みする
+  if (btn.dataset.tab === 'logTab' && !logLoaded) loadLogHistory();
 }
 
 /**
@@ -736,6 +838,7 @@ function switchTab(btn, groupId) {
   ['arithNegInput', () => addArith('neg')],
   ['journeyStart',  () => document.getElementById('journeyEnd').focus()],
   ['journeyEnd',    () => runJourney()],
+  ['logSearchInput', () => loadLogHistory()],
 ].forEach(([id, fn]) => {
   document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') fn(); });
 });

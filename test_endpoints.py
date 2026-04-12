@@ -76,10 +76,10 @@ def make_tagger(words):
 # ── フィクスチャ ──────────────────────────────────────────────────────────────
 
 @pytest.fixture()
-def client():
+def client(tmp_path):
     import server as srv
 
-    orig = (srv.model, srv.client, srv.tagger, srv._random_vocab)
+    orig = (srv.model, srv.client, srv.tagger, srv._random_vocab, srv.LOG_PATH)
 
     srv.model = make_model()
     srv.client = make_client()
@@ -92,11 +92,12 @@ def client():
         make_word("錆", "名詞"),
         make_word("静か", "形容詞"),
     ])
+    srv.LOG_PATH = str(tmp_path / "test.log")
 
     with TestClient(srv.app) as tc:
         yield tc
 
-    srv.model, srv.client, srv.tagger, srv._random_vocab = orig
+    srv.model, srv.client, srv.tagger, srv._random_vocab, srv.LOG_PATH = orig
 
 
 # ── TONE_MAP / build_tone_line ────────────────────────────────────────────────
@@ -857,3 +858,155 @@ class TestEvaluate:
         # ・ プレフィックスが除去されていること
         for s in res.json()["suggestions"]:
             assert not s.startswith("・")
+
+
+# ── /history ──────────────────────────────────────────────────────────────────
+
+SAMPLE_ENTRY_PROMPT = {
+    "timestamp": "2026-04-12T10:00:00+00:00",
+    "endpoint": "/prompt",
+    "params": {"pivot": "孤独", "near": ["静寂"], "far": ["賑わい"], "mode": "combo",
+               "style": "", "keywords": [], "path": [], "tone": {}},
+    "scene_ja": "霧の中に佇む孤独な情景",
+    "prompt": "foggy harbor, dusk, muted tones",
+}
+SAMPLE_ENTRY_EXPAND = {
+    "timestamp": "2026-04-12T11:00:00+00:00",
+    "endpoint": "/expand",
+    "params": {"text": "夕暮れの港", "style": "", "keywords": [], "topn": 5, "tone": {}},
+    "scene_ja": "夕暮れに染まる港の情景",
+    "prompt": "sunset harbor, warm tones, sailing boat",
+}
+
+
+@pytest.fixture()
+def history_client(tmp_path):
+    """LOG_PATH を一時ファイルに差し替えた TestClient を返す。"""
+    import server as srv
+    orig_log = srv.LOG_PATH
+    orig = (srv.model, srv.client, srv.tagger, srv._random_vocab)
+
+    srv.model = make_model()
+    srv.client = make_client()
+    srv._random_vocab = ["孤独", "霧", "光"]
+    srv.tagger = make_tagger([])
+
+    log_file = tmp_path / "test.log"
+    srv.LOG_PATH = str(log_file)
+
+    with TestClient(srv.app) as tc:
+        yield tc, log_file
+
+    srv.model, srv.client, srv.tagger, srv._random_vocab = orig
+    srv.LOG_PATH = orig_log
+
+
+class TestHistory:
+    def test_no_log_file_returns_empty(self, history_client):
+        tc, _ = history_client
+        res = tc.get("/history")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["entries"] == []
+        assert data["total"] == 0
+
+    def test_returns_entries_newest_first(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        log_file.write_text(
+            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
+            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        res = tc.get("/history")
+        assert res.status_code == 200
+        entries = res.json()["entries"]
+        # 後に書いた EXPAND が先頭に来る（新着順）
+        assert entries[0]["endpoint"] == "/expand"
+        assert entries[1]["endpoint"] == "/prompt"
+
+    def test_total_reflects_all_matches(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        log_file.write_text(
+            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
+            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        res = tc.get("/history")
+        assert res.json()["total"] == 2
+
+    def test_search_filters_by_scene_ja(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        log_file.write_text(
+            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
+            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        res = tc.get("/history?q=孤独")
+        data = res.json()
+        assert data["total"] == 1
+        assert data["entries"][0]["endpoint"] == "/prompt"
+
+    def test_search_filters_by_prompt(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        log_file.write_text(
+            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
+            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        res = tc.get("/history?q=sailing")
+        data = res.json()
+        assert data["total"] == 1
+        assert data["entries"][0]["endpoint"] == "/expand"
+
+    def test_search_no_match_returns_empty(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        log_file.write_text(
+            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+        res = tc.get("/history?q=一致しない文字列XYZ")
+        data = res.json()
+        assert data["entries"] == []
+        assert data["total"] == 0
+
+    def test_limit_respected(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        lines = "\n".join(
+            _json.dumps({**SAMPLE_ENTRY_PROMPT, "timestamp": f"2026-04-12T10:{i:02d}:00+00:00"},
+                        ensure_ascii=False)
+            for i in range(5)
+        ) + "\n"
+        log_file.write_text(lines, encoding="utf-8")
+        res = tc.get("/history?limit=3")
+        assert len(res.json()["entries"]) == 3
+        assert res.json()["total"] == 5
+
+    def test_offset_skips_entries(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        lines = "\n".join(
+            _json.dumps({**SAMPLE_ENTRY_PROMPT, "timestamp": f"2026-04-12T10:{i:02d}:00+00:00"},
+                        ensure_ascii=False)
+            for i in range(5)
+        ) + "\n"
+        log_file.write_text(lines, encoding="utf-8")
+        res = tc.get("/history?limit=10&offset=3")
+        assert len(res.json()["entries"]) == 2
+
+    def test_malformed_lines_skipped(self, history_client):
+        import json as _json
+        tc, log_file = history_client
+        log_file.write_text(
+            "not json\n" +
+            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
+            "\n",
+            encoding="utf-8",
+        )
+        res = tc.get("/history")
+        assert res.json()["total"] == 1

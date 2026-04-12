@@ -531,3 +531,45 @@ select#styleSelect { flex: 1; }
 .eval-loading { font-size:0.6rem; color:var(--muted); letter-spacing:0.12em; }
 .divider { border:none; border-top:1px solid var(--borderc); }
 .error-msg { font-size:0.72rem; color:var(--pink); padding:0.5rem 0; font-family:var(--font-serif); }
+
+/* ── Log History Tab ── */
+.log-entry-card {
+  background: var(--surface);
+  border: 1px solid var(--borderc);
+  border-radius: 2px;
+  padding: 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  transition: border-color 0.12s;
+}
+.log-entry-card:hover { border-color: #3a3a48; }
+.log-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.log-entry-date { font-size:0.5rem; color:var(--muted); letter-spacing:0.1em; }
+.log-entry-source {
+  font-size: 0.43rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  border: 1px solid var(--borderc);
+  padding: 0.1rem 0.4rem;
+  color: var(--muted);
+  border-radius: 1px;
+}
+.log-entry-pivot { font-family:var(--font-serif); font-size:0.8rem; color:var(--gold); }
+.log-entry-scene {
+  font-family: var(--font-serif);
+  font-size: 0.72rem;
+  color: var(--dim);
+  line-height: 1.65;
+}
+.log-entry-prompt {
+  font-size: 0.58rem;
+  color: var(--muted);
+  line-height: 1.55;
+  font-family: var(--font-mono);
+  word-break: break-all;
+}

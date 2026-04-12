@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -144,6 +144,9 @@ class EvaluateRequest(BaseModel):
 
 load_dotenv()
 
+# 日本標準時（UTC+9）
+JST = timezone(timedelta(hours=9))
+
 # ログの出力先パス（環境変数 LOG_PATH で上書き可）
 LOG_PATH = os.environ.get("LOG_PATH", "prompts.log")
 
@@ -157,7 +160,7 @@ def write_log(endpoint: str, params: dict, scene_ja: str, prompt: str):
         prompt: 生成された英語のプロンプトタグ列。
     """
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(JST).isoformat(),
         "endpoint": endpoint,
         "params": params,
         "scene_ja": scene_ja,
@@ -299,7 +302,7 @@ Semantic instruction (Japanese):
 
 Output exactly 2 lines, no extra text:
 Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>
-Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and visual, subject/composition/environment/lighting/time/mood>"""
+Line 2 — PROMPT: <English comma-separated tags, 40-80 words, concise and selective, only the most essential and evocative details for subject/composition/lighting/mood>"""
             }]
         )
     except Exception as e:
@@ -424,7 +427,7 @@ Word clusters (Japanese semantic space):
 
 Output exactly 2 lines, no extra text:
 Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>
-Line 2 — PROMPT: <English comma-separated tags, 120-500 words, specific and visual, subject/composition/environment/lighting/time/mood>"""
+Line 2 — PROMPT: <English comma-separated tags, 40-80 words, concise and selective, only the most essential and evocative details for subject/composition/lighting/mood>"""
             }]
         )
     except Exception as e:
@@ -523,6 +526,44 @@ SUGGESTIONS:
         elif in_suggestions and line.startswith("・"):
             result["suggestions"].append(line[1:].strip())
     return result
+
+@app.get("/history")
+def get_history(limit: int = 50, offset: int = 0, q: str = ""):
+    """prompts.log から生成履歴を新着順で返す。
+
+    Args:
+        limit: 返す最大件数（デフォルト 50）。
+        offset: スキップする件数（ページネーション用）。
+        q: 絞り込みクエリ（scene_ja・prompt に部分一致する行のみ返す）。
+
+    Returns:
+        {"entries": [...], "total": int} —
+        一致エントリの配列と総件数。entry の構造は write_log の出力と同じ。
+    """
+    try:
+        with open(LOG_PATH, encoding="utf-8") as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        return {"entries": [], "total": 0}
+
+    matched = []
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if q:
+            q_lower = q.lower()
+            if q_lower not in entry.get("scene_ja", "").lower() and \
+               q_lower not in entry.get("prompt", "").lower():
+                continue
+        matched.append(entry)
+
+    return {"entries": matched[offset: offset + limit], "total": len(matched)}
+
 
 @app.post("/analyze")
 def analyze(req: AnalyzeRequest):

@@ -24,6 +24,7 @@
     <div class="main-tab-btn" data-tab="journeyTab" onclick="switchMainTab(this)">連想チェーン</div>
     <div class="main-tab-btn" data-tab="expandTab" onclick="switchMainTab(this)">文章展開</div>
     <div class="main-tab-btn" data-tab="toneTab" onclick="switchMainTab(this)">トーン調整</div>
+    <div class="main-tab-btn" data-tab="logTab" onclick="switchMainTab(this)">生成履歴</div>
   </div>
 
   <!-- ── 検索タブ ── -->
@@ -502,6 +503,23 @@
             <div class="eval-card" id="expandPromptEval" style="display:none"></div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 生成履歴タブ ── -->
+  <div class="main-tab-pane" id="logTab">
+    <div class="tool-page">
+      <div class="tool-page-inner" style="max-width:720px">
+        <div class="tool-section">
+          <div class="search-label">履歴を検索</div>
+          <div class="search-box">
+            <input type="text" id="logSearchInput" placeholder="情景メモ・プロンプトで絞り込み…" autocomplete="off">
+            <button class="btn-ghost btn-sm" onclick="loadLogHistory()">検索</button>
+          </div>
+        </div>
+        <div id="logInitMsg" class="tool-init-msg">タブを開くと読み込みます</div>
+        <div id="logEntries" style="display:flex;flex-direction:column;gap:0.8rem;"></div>
       </div>
     </div>
   </div>
