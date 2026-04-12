@@ -79,6 +79,13 @@ python server.py
 | GET | `/similar?word=孤独&topn=8` | 意味的に近い単語を返す |
 | GET | `/distant?word=孤独&topn=8` | 意味的に遠い単語を返す |
 | GET | `/similarity?word1=霧&word2=煙` | 2単語の類似度スコアを返す |
+| GET | `/history?limit=50&offset=0&q=` | 生成履歴を新着順で返す。`q` で scene_ja・prompt を絞り込み |
+| POST | `/prompt` | Claude API でプロンプトを生成する |
+| POST | `/arithmetic` | ベクトル演算で近い単語を返す |
+| POST | `/journey` | 起点から終点への意味的経路を返す |
+| POST | `/analyze` | テキストを形態素解析して単語リストを返す |
+| POST | `/expand` | テキストから単語を抽出し近傍語を展開して Claude API でプロンプトを生成する |
+| POST | `/evaluate` | プロンプトを Claude API で評価し、スコア・5軸スコア・改善提案を返す |
 
 #### GET /random
 
@@ -97,13 +104,6 @@ python server.py
 ```json
 { "score": 0.83 }
 ```
-| POST | `/prompt` | Claude API でプロンプトを生成する |
-| POST | `/arithmetic` | ベクトル演算で近い単語を返す |
-| POST | `/journey` | 起点から終点への意味的経路を返す |
-| POST | `/analyze` | テキストを形態素解析して単語リストを返す |
-| POST | `/expand` | テキストから単語を抽出し近傍語を展開して Claude API でプロンプトを生成する |
-| POST | `/evaluate` | プロンプトを Claude API で評価し、スコア・5軸スコア・改善提案を返す |
-| GET | `/history?limit=50&offset=0&q=` | 生成履歴を新着順で返す。`q` で scene_ja・prompt を絞り込み |
 
 ### POST /prompt
 
@@ -123,9 +123,6 @@ python server.py
 - `style`: アートスタイル・画材（省略可）
 - `keywords`: 必ず含めたい概念のリスト（省略可）
 - `path`: `journey` モード時に使用する経路の単語リスト
-
-```json
-```
 
 レスポンス:
 
