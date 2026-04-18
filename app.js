@@ -359,7 +359,7 @@ function copyText(id) {
  * @param {string[]} words - 表示する単語の配列。
  */
 function addAnalyzedWords(words) {
-  document.getElementById('analyzedSection').innerHTML = words.map((w, i) =>`
+  document.getElementById('analyzedSection').innerHTML = words.map(w =>`
     <div class="analyze-item" onclick="searchWord('${w}')">
       <span class="analyze-item-word">${w}</span>
     </div>
@@ -699,6 +699,70 @@ async function runExpand() {
   });
 }
 
+// ── Cluster ──
+
+let clusterWords = [];  // 共通探索の入力単語リスト
+
+/**
+ * 共通探索リストに単語を追加する。重複は無視する。
+ */
+function addClusterWord() {
+  const input = document.getElementById('clusterInput');
+  const word = input.value.trim();
+  if (!word || clusterWords.includes(word)) { input.value = ''; return; }
+  clusterWords.push(word);
+  input.value = '';
+  renderClusterChips();
+}
+
+/**
+ * 共通探索リストから単語を削除する。
+ * @param {string} word - 削除する単語。
+ */
+function removeClusterWord(word) {
+  clusterWords = clusterWords.filter(w => w !== word);
+  renderClusterChips();
+}
+
+/**
+ * 共通探索の入力チップを再描画する。
+ */
+function renderClusterChips() {
+  document.getElementById('clusterChips').innerHTML = clusterWords.map(w =>
+    `<span class="kchip">${w}<span class="kchip-remove" onclick="removeClusterWord('${escAttr(w)}')">✕</span></span>`
+  ).join('');
+}
+
+/**
+ * /cluster API を呼び出し、共通近傍語をチップとして表示する。
+ * @returns {Promise<void>}
+ */
+async function doCluster() {
+  if (clusterWords.length < 2) return;
+  document.getElementById('clusterResults').innerHTML = '';
+  await withBtn('clusterBtn', '...', '探索する', async () => {
+    try {
+      const topn = parseInt(document.getElementById('topnSlider').value);
+      const res = await fetch(`${API}/cluster`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words: clusterWords, topn }),
+      });
+      const data = await res.json();
+      const resultsEl = document.getElementById('clusterResults');
+      document.getElementById('clusterInitMsg').style.display = 'none';
+      resultsEl.innerHTML = data.error
+        ? `<span class="arith-error">${esc(data.error)}</span>`
+        : `<div class="chips-row" style="padding:0.5rem 0">${
+            data.results.map(([w, score], i) => makeChip(w, 'arith', i, score)).join('')
+          }</div>`;
+    } catch(e) {
+      document.getElementById('clusterResults').innerHTML =
+        '<span class="arith-error">エラーが発生しました</span>';
+    }
+  });
+}
+
 // ── Log History ──
 
 // 履歴タブを一度でも読み込んだかのフラグ
@@ -787,7 +851,6 @@ function renderLogEntry(entry) {
         ${pivotWord ? `<span class="log-entry-pivot">${esc(pivotWord)}</span>` : ''}
       </div>
       <div class="log-entry-scene">${esc(scene)}</div>
-      <!-- evaluatePrompt が ${pid}Scene を参照するため hidden 要素を置く -->
       <div id="${pid}Scene" style="display:none">${esc(scene)}</div>
       <div class="log-entry-prompt" id="${pid}">${esc(prompt)}</div>
       <div class="prompt-actions">
@@ -838,6 +901,7 @@ function switchTab(btn, groupId) {
   ['arithNegInput', () => addArith('neg')],
   ['journeyStart',  () => document.getElementById('journeyEnd').focus()],
   ['journeyEnd',    () => runJourney()],
+  ['clusterInput',   () => addClusterWord()],
   ['logSearchInput', () => loadLogHistory()],
 ].forEach(([id, fn]) => {
   document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') fn(); });

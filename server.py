@@ -81,6 +81,44 @@ def pick_instruction(mode: str, **kwargs) -> str:
     return template.format(**kwargs)
 
 
+def build_extra_lines(style: str, keywords: list[str], tone: dict) -> str:
+    """スタイル・キーワード・トーン指示を Claude プロンプト用の追加行にまとめて返す。
+
+    Args:
+        style: アートスタイル・画材（空文字なら省略）。
+        keywords: 必ず含めるコンセプトのリスト（空なら省略）。
+        tone: トーン軸名 → 強度値の辞書。
+
+    Returns:
+        有効な行を改行でつないだ文字列。すべて空なら空文字列。
+    """
+    lines = [
+        f"- Art style / medium: {style}" if style else "",
+        f"- Must include these concepts: {', '.join(keywords)}" if keywords else "",
+        build_tone_line(tone),
+    ]
+    return "\n".join(l for l in lines if l)
+
+
+def parse_scene_and_prompt(raw: str) -> tuple[str, str]:
+    """Claude の応答から SCENE: 行と PROMPT: 行を取り出す。
+
+    Args:
+        raw: Claude が返した応答テキスト全体。
+
+    Returns:
+        (scene_ja, prompt) のタプル。
+        各行が見つからない場合は scene_ja が空文字列、prompt が raw 全体になる。
+    """
+    scene_ja, prompt = "", raw
+    for line in raw.splitlines():
+        if line.startswith("SCENE:"):
+            scene_ja = line[len("SCENE:"):].strip()
+        elif line.startswith("PROMPT:"):
+            prompt = line[len("PROMPT:"):].strip()
+    return scene_ja, prompt
+
+
 def build_tone_line(tone: dict) -> str:
     """tone 辞書（軸名 → -3〜3 の整数値）を、Claude へ渡す英語の雰囲気指示行に変換する。
 
@@ -141,6 +179,11 @@ class EvaluateRequest(BaseModel):
     """POST /evaluate のリクエスト。英語プロンプトの品質をスコアリングする。"""
     prompt: str
     scene_ja: str = ""  # 日本語の情景説明（省略可）
+
+class ClusterRequest(BaseModel):
+    """POST /cluster のリクエスト。複数単語の共通近傍語を探索する。"""
+    words: list[str]        # 2語以上必須
+    topn: int = 10
 
 load_dotenv()
 
@@ -283,9 +326,7 @@ def generate_prompt(req: PromptRequest):
             pivot=req.pivot, near=", ".join(req.near), far=", ".join(req.far))
     else:
         return {"error": f"不明なモードです: {req.mode}"}
-    style_line = f"- Art style / medium: {req.style}" if req.style else ""
-    keyword_line = f"- Must include these concepts: {', '.join(req.keywords)}" if req.keywords else ""
-    tone_line = build_tone_line(req.tone)
+    extra = build_extra_lines(req.style, req.keywords, req.tone)
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
@@ -296,25 +337,16 @@ def generate_prompt(req: PromptRequest):
 
 Semantic instruction (Japanese):
 {instruction}
-{style_line}
-{keyword_line}
-{tone_line}
+{extra}
 
 Output exactly 2 lines, no extra text:
 Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>
-Line 2 — PROMPT: <English comma-separated tags, 40-80 words, concise and selective, only the most essential and evocative details for subject/composition/lighting/mood>"""
+Line 2 — PROMPT: <English comma-separated tags, 100-300 words, concise and selective, only the most essential and evocative details for subject/composition/lighting/mood>"""
             }]
         )
     except Exception as e:
         return {"error": f"プロンプト生成に失敗しました: {e}"}
-    # Claude の応答から SCENE 行と PROMPT 行をパースする
-    raw = message.content[0].text
-    scene_ja, prompt = "", raw
-    for line in raw.splitlines():
-        if line.startswith("SCENE:"):
-            scene_ja = line[len("SCENE:"):].strip()
-        elif line.startswith("PROMPT:"):
-            prompt = line[len("PROMPT:"):].strip()
+    scene_ja, prompt = parse_scene_and_prompt(message.content[0].text)
     write_log("/prompt", {"pivot": req.pivot, "near": req.near, "far": req.far, "mode": req.mode, "style": req.style, "keywords": req.keywords, "path": req.path, "tone": req.tone}, scene_ja, prompt)
     return {"prompt": prompt, "scene_ja": scene_ja}
 
@@ -408,9 +440,7 @@ def expand(req: ExpandRequest):
     context_lines = "\n".join(
         f"・{w}: {', '.join(neighbors)}" for w, neighbors in word_map.items()
     )
-    style_line = f"- Art style / medium: {req.style}" if req.style else ""
-    keyword_line = f"- Must include these concepts: {', '.join(req.keywords)}" if req.keywords else ""
-    tone_line = build_tone_line(req.tone)
+    extra = build_extra_lines(req.style, req.keywords, req.tone)
     try:
         message = client.messages.create(
             model="claude-sonnet-4-20250514",
@@ -421,9 +451,7 @@ def expand(req: ExpandRequest):
 
 Word clusters (Japanese semantic space):
 {context_lines}
-{style_line}
-{keyword_line}
-{tone_line}
+{extra}
 
 Output exactly 2 lines, no extra text:
 Line 1 — SCENE: <具体的な情景を日本語で1000字以内に記述>
@@ -432,15 +460,7 @@ Line 2 — PROMPT: <English comma-separated tags, 40-80 words, concise and selec
         )
     except Exception as e:
         return {"error": f"プロンプト生成に失敗しました: {e}"}
-
-    # Claude の応答から SCENE 行と PROMPT 行をパースする
-    raw = message.content[0].text
-    scene_ja, prompt = "", raw
-    for line in raw.splitlines():
-        if line.startswith("SCENE:"):
-            scene_ja = line[len("SCENE:"):].strip()
-        elif line.startswith("PROMPT:"):
-            prompt = line[len("PROMPT:"):].strip()
+    scene_ja, prompt = parse_scene_and_prompt(message.content[0].text)
     write_log("/expand", {"text": req.text, "style": req.style, "keywords": req.keywords, "topn": req.topn, "tone": req.tone}, scene_ja, prompt)
     return {"words": extracted, "word_map": word_map, "prompt": prompt, "scene_ja": scene_ja}
 
@@ -527,6 +547,29 @@ SUGGESTIONS:
             result["suggestions"].append(line[1:].strip())
     return result
 
+@app.post("/cluster")
+def cluster(req: ClusterRequest):
+    """複数単語すべてに意味的に近い共通近傍語を返す。
+
+    入力単語ベクトルの重心（centroid）に最も近い単語を探索し、
+    入力単語自身は結果から除外したうえでシャッフルして返す。
+
+    Args:
+        req: ClusterRequest — words（2語以上）・topn。
+
+    Returns:
+        {"results": [(単語, スコア), ...]} または {"error": str}。
+    """
+    if len(req.words) < 2:
+        return {"error": "2語以上入力してください"}
+    if err := missing(*req.words): return err
+    raw = model.most_similar(positive=req.words, topn=req.topn * 3)
+    exclude = set(req.words)
+    filtered = [(w, s) for w, s in raw if w not in exclude]
+    random.shuffle(filtered)
+    return {"results": filtered[:req.topn]}
+
+
 @app.get("/history")
 def get_history(limit: int = 50, offset: int = 0, q: str = ""):
     """prompts.log から生成履歴を新着順で返す。
@@ -540,6 +583,9 @@ def get_history(limit: int = 50, offset: int = 0, q: str = ""):
         {"entries": [...], "total": int} —
         一致エントリの配列と総件数。entry の構造は write_log の出力と同じ。
     """
+    limit = min(limit, 200)
+    q_lower = q.lower() if q else ""
+
     try:
         with open(LOG_PATH, encoding="utf-8") as f:
             lines = f.readlines()
@@ -555,11 +601,9 @@ def get_history(limit: int = 50, offset: int = 0, q: str = ""):
             entry = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if q:
-            q_lower = q.lower()
-            if q_lower not in entry.get("scene_ja", "").lower() and \
-               q_lower not in entry.get("prompt", "").lower():
-                continue
+        if q_lower and q_lower not in entry.get("scene_ja", "").lower() \
+                   and q_lower not in entry.get("prompt", "").lower():
+            continue
         matched.append(entry)
 
     return {"entries": matched[offset: offset + limit], "total": len(matched)}

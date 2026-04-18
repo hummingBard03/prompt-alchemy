@@ -23,6 +23,7 @@
     <div class="main-tab-btn" data-tab="arithTab" onclick="switchMainTab(this)">ベクトル演算</div>
     <div class="main-tab-btn" data-tab="journeyTab" onclick="switchMainTab(this)">連想チェーン</div>
     <div class="main-tab-btn" data-tab="expandTab" onclick="switchMainTab(this)">文章展開</div>
+    <div class="main-tab-btn" data-tab="clusterTab" onclick="switchMainTab(this)">共通探索</div>
     <div class="main-tab-btn" data-tab="toneTab" onclick="switchMainTab(this)">トーン調整</div>
     <div class="main-tab-btn" data-tab="logTab" onclick="switchMainTab(this)">生成履歴</div>
   </div>
@@ -503,6 +504,27 @@
             <div class="eval-card" id="expandPromptEval" style="display:none"></div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 共通探索タブ ── -->
+  <div class="main-tab-pane" id="clusterTab">
+    <div class="tool-page">
+      <div class="tool-page-inner">
+        <div class="tool-section">
+          <div class="search-label">単語を入力（2語以上）</div>
+          <div class="arith-row">
+            <input type="text" id="clusterInput" placeholder="夕暮れ、廃墟、静寂…" autocomplete="off">
+            <button class="btn-ghost btn-sm" onclick="addClusterWord()">追加</button>
+          </div>
+          <div class="arith-chips" id="clusterChips"></div>
+          <button class="btn-ghost btn-sm arith-btn" onclick="doCluster()" id="clusterBtn">探索する</button>
+        </div>
+        <div id="clusterInitMsg" class="tool-init-msg">
+          単語を2語以上追加して「探索する」を押してください
+        </div>
+        <div id="clusterResults"></div>
       </div>
     </div>
   </div>

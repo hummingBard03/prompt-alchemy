@@ -8,8 +8,12 @@
   - server._random_vocab: ランダム単語プール
 """
 
+import json as _json
+from pathlib import Path
+
 import numpy as np
 import pytest
+import server as srv
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from server import TONE_MAP, build_tone_line, _INSTRUCTIONS, pick_instruction
@@ -335,21 +339,18 @@ class TestPrompt:
         assert "error" in res.json()
 
     def test_style_passed_to_claude(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "near", "style": "水彩画"})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert "水彩画" in content
 
     def test_keywords_passed_to_claude(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "near", "keywords": ["月", "廃墟"]})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert "月" in content and "廃墟" in content
 
     def test_claude_api_error_returns_error(self, client):
-        import server as srv
         srv.client.messages.create.side_effect = Exception("API down")
         res = client.post("/prompt", json={**self.BASE, "mode": "near"})
         assert res.status_code == 200
@@ -357,7 +358,6 @@ class TestPrompt:
         srv.client.messages.create.side_effect = None
 
     def test_response_parses_scene_and_prompt(self, client):
-        import server as srv
         srv.client = make_client(scene="テスト情景", prompt_text="test, prompt")
         res = client.post("/prompt", json={**self.BASE, "mode": "combo"})
         data = res.json()
@@ -365,7 +365,6 @@ class TestPrompt:
         assert data["prompt"] == "test, prompt"
 
     def test_malformed_claude_response_falls_back(self, client):
-        import server as srv
         msg = MagicMock()
         msg.content = [MagicMock(text="no prefix at all")]
         srv.client.messages.create.return_value = msg
@@ -374,7 +373,6 @@ class TestPrompt:
         assert "prompt" in res.json()
 
     def test_tone_included_in_claude_call(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "combo", "tone": {"brightness": -2, "mystery": 2}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -382,14 +380,12 @@ class TestPrompt:
         assert TONE_MAP["mystery"][2] in content
 
     def test_zero_tone_not_in_claude_call(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "combo", "tone": {"brightness": 0}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert "Tone / atmosphere" not in content
 
     def test_out_of_range_tone_ignored_in_prompt(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "combo", "tone": {"brightness": 4}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -398,14 +394,12 @@ class TestPrompt:
     @pytest.mark.parametrize("axis", ["scale", "density", "decay", "mood", "color",
                                        "lighting", "spatial", "clarity"])
     def test_new_tone_axes_in_prompt(self, client, axis):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "combo", "tone": {axis: 2}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert TONE_MAP[axis][2] in content
 
     def test_tone_level3_in_prompt(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "combo",
                                      "tone": {"brightness": 3, "decay": -3}})
@@ -414,7 +408,6 @@ class TestPrompt:
         assert TONE_MAP["decay"][-3] in content
 
     def test_all_new_axes_in_single_prompt(self, client):
-        import server as srv
         srv.client = make_client()
         tone = {"scale": 1, "density": -1, "decay": 2, "mood": -2, "color": 3,
                 "lighting": 2, "spatial": -1, "clarity": 1}
@@ -429,7 +422,6 @@ class TestPrompt:
         ("clarity",  -3), ("clarity",  3),
     ])
     def test_new_axes_level3_in_prompt(self, client, axis, val):
-        import server as srv
         srv.client = make_client()
         client.post("/prompt", json={**self.BASE, "mode": "combo", "tone": {axis: val}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -470,7 +462,6 @@ class TestArithmetic:
         assert "error" in res.json()
 
     def test_input_words_excluded_from_results(self, client):
-        import server as srv
         srv.model.most_similar.return_value = [("霧", 0.99), ("光", 0.8), ("煙", 0.7)]
         res = client.post("/arithmetic", json={"positive": ["霧"], "negative": ["光"]})
         words = [w for w, _ in res.json()["results"]]
@@ -478,9 +469,44 @@ class TestArithmetic:
         assert "光" not in words
 
     def test_topn_respected(self, client):
-        import server as srv
         srv.model.most_similar.return_value = [(f"w{i}", 0.9 - i * 0.01) for i in range(20)]
         res = client.post("/arithmetic", json={"positive": ["光"], "topn": 3})
+        assert len(res.json()["results"]) <= 3
+
+
+# ── /cluster ─────────────────────────────────────────────────────────────────
+
+class TestCluster:
+    def test_returns_results(self, client):
+        res = client.post("/cluster", json={"words": ["霧", "静寂"]})
+        assert res.status_code == 200
+        assert "results" in res.json()
+
+    def test_input_words_excluded(self, client):
+        srv.model.most_similar.return_value = [("霧", 0.9), ("煙", 0.8), ("静寂", 0.7)]
+        res = client.post("/cluster", json={"words": ["霧", "静寂"]})
+        words = [w for w, _ in res.json()["results"]]
+        assert "霧" not in words
+        assert "静寂" not in words
+
+    def test_single_word_returns_error(self, client):
+        res = client.post("/cluster", json={"words": ["霧"]})
+        assert res.status_code == 200
+        assert "error" in res.json()
+
+    def test_empty_words_returns_error(self, client):
+        res = client.post("/cluster", json={"words": []})
+        assert res.status_code == 200
+        assert "error" in res.json()
+
+    def test_unknown_word_returns_error(self, client):
+        res = client.post("/cluster", json={"words": ["霧", "未登録"]})
+        assert res.status_code == 200
+        assert "error" in res.json()
+
+    def test_topn_respected(self, client):
+        srv.model.most_similar.return_value = [(f"w{i}", 0.9 - i * 0.01) for i in range(20)]
+        res = client.post("/cluster", json={"words": ["霧", "静寂"], "topn": 3})
         assert len(res.json()["results"]) <= 3
 
 
@@ -546,26 +572,22 @@ class TestAnalyze:
         assert "錆" not in words   # 1文字は除外
 
     def test_returns_unique_words(self, client):
-        import server as srv
         srv.tagger = make_tagger([make_word("霧", "名詞"), make_word("霧", "名詞")])
         res = client.post("/analyze", json={"text": "霧霧"})
         assert res.json()["words"].count("霧") <= 1
 
     def test_empty_text_returns_empty_list(self, client):
-        import server as srv
         srv.tagger = make_tagger([])
         res = client.post("/analyze", json={"text": ""})
         assert res.status_code == 200
         assert res.json()["words"] == []
 
     def test_verb_is_extracted(self, client):
-        import server as srv
         srv.tagger = make_tagger([make_word("走る", "動詞")])
         res = client.post("/analyze", json={"text": "走る"})
         assert "走る" in res.json()["words"]
 
     def test_all_filtered_returns_empty(self, client):
-        import server as srv
         srv.tagger = make_tagger([
             make_word("は", "助詞"),
             make_word("a", "名詞"),   # 1文字
@@ -592,14 +614,12 @@ class TestExpand:
         assert set(data["word_map"].keys()) == set(data["words"])
 
     def test_no_extractable_words_returns_error(self, client):
-        import server as srv
         srv.tagger = make_tagger([make_word("の", "助詞")])
         res = client.post("/expand", json={"text": "の"})
         assert res.status_code == 200
         assert "error" in res.json()
 
     def test_style_and_keywords_passed(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/expand", json={"text": "夕暮れの港", "style": "油絵", "keywords": ["夕焼け"]})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -607,7 +627,6 @@ class TestExpand:
         assert "夕焼け" in content
 
     def test_max_6_words_extracted(self, client):
-        import server as srv
         srv.tagger = make_tagger([make_word(f"単語{i}", "名詞") for i in range(7)])
         srv.model.__contains__ = lambda self, w: True
         res = client.post("/expand", json={"text": "test"})
@@ -615,7 +634,6 @@ class TestExpand:
             assert len(res.json()["words"]) <= 6
 
     def test_claude_error_returns_error(self, client):
-        import server as srv
         srv.client.messages.create.side_effect = Exception("API down")
         res = client.post("/expand", json={"text": "夕暮れの港に錆びた船"})
         assert res.status_code == 200
@@ -623,7 +641,6 @@ class TestExpand:
         srv.client.messages.create.side_effect = None
 
     def test_tone_included_in_expand_call(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/expand", json={"text": "夕暮れの港に錆びた船", "tone": {"warmth": -1, "quietness": 2}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -631,7 +648,6 @@ class TestExpand:
         assert TONE_MAP["quietness"][2] in content
 
     def test_zero_tone_not_in_expand_call(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/expand", json={"text": "夕暮れの港に錆びた船", "tone": {"brightness": 0}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -640,14 +656,12 @@ class TestExpand:
     @pytest.mark.parametrize("axis", ["scale", "density", "decay", "mood", "color",
                                        "lighting", "spatial", "clarity"])
     def test_new_tone_axes_in_expand(self, client, axis):
-        import server as srv
         srv.client = make_client()
         client.post("/expand", json={"text": "夕暮れの港に錆びた船", "tone": {axis: -2}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert TONE_MAP[axis][-2] in content
 
     def test_tone_level3_in_expand(self, client):
-        import server as srv
         srv.client = make_client()
         client.post("/expand", json={"text": "夕暮れの港に錆びた船",
                                      "tone": {"scale": 3, "mood": -3}})
@@ -661,14 +675,12 @@ class TestExpand:
         ("clarity",  -3), ("clarity",  3),
     ])
     def test_new_axes_level3_in_expand(self, client, axis, val):
-        import server as srv
         srv.client = make_client()
         client.post("/expand", json={"text": "夕暮れの港に錆びた船", "tone": {axis: val}})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert TONE_MAP[axis][val] in content
 
     def test_all_new_axes_in_single_expand(self, client):
-        import server as srv
         srv.client = make_client()
         tone = {"lighting": -2, "spatial": 3, "clarity": -1}
         client.post("/expand", json={"text": "夕暮れの港に錆びた船", "tone": tone})
@@ -677,7 +689,6 @@ class TestExpand:
             assert TONE_MAP[axis][val] in content
 
     def test_response_parses_scene_ja(self, client):
-        import server as srv
         srv.client = make_client(scene="港の夕景", prompt_text="harbor, dusk")
         res = client.post("/expand", json={"text": "夕暮れの港に錆びた船"})
         data = res.json()
@@ -685,7 +696,6 @@ class TestExpand:
         assert data["prompt"] == "harbor, dusk"
 
     def test_topn_affects_word_map_size(self, client):
-        import server as srv
         srv.model.most_similar.return_value = [("霧", 0.9), ("煙", 0.8), ("光", 0.7)]
         res = client.post("/expand", json={"text": "夕暮れの港に錆びた船", "topn": 2})
         data = res.json()
@@ -693,7 +703,6 @@ class TestExpand:
             assert len(neighbors) <= 2
 
     def test_duplicate_words_deduplicated(self, client):
-        import server as srv
         srv.tagger = make_tagger([
             make_word("夕暮れ", "名詞"),
             make_word("夕暮れ", "名詞"),
@@ -710,7 +719,6 @@ class TestEvaluate:
     VALID_PROMPT = "a foggy harbor at dusk, muted tones, melancholic atmosphere, soft diffused light"
 
     def test_basic_success(self, client):
-        import server as srv
         srv.client = make_eval_client()
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert res.status_code == 200
@@ -720,25 +728,21 @@ class TestEvaluate:
         assert "suggestions" in data
 
     def test_score_parsed_correctly(self, client):
-        import server as srv
         srv.client = make_eval_client(score=72)
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert res.json()["score"] == 72
 
     def test_score_boundary_zero(self, client):
-        import server as srv
         srv.client = make_eval_client(score=0)
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert res.json()["score"] == 0
 
     def test_score_boundary_hundred(self, client):
-        import server as srv
         srv.client = make_eval_client(score=100)
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert res.json()["score"] == 100
 
     def test_dimensions_has_all_keys(self, client):
-        import server as srv
         srv.client = make_eval_client()
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         dims = res.json()["dimensions"]
@@ -746,7 +750,6 @@ class TestEvaluate:
             assert key in dims, f"dimensions に '{key}' がない"
 
     def test_dimension_values_parsed_correctly(self, client):
-        import server as srv
         srv.client = make_eval_client(subject=8, composition=6, lighting=7, mood=9, detail=5)
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         dims = res.json()["dimensions"]
@@ -757,19 +760,16 @@ class TestEvaluate:
         assert dims["detail"] == 5
 
     def test_suggestions_is_list(self, client):
-        import server as srv
         srv.client = make_eval_client()
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert isinstance(res.json()["suggestions"], list)
 
     def test_suggestions_count(self, client):
-        import server as srv
         srv.client = make_eval_client(suggestions=["提案A", "提案B", "提案C"])
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert len(res.json()["suggestions"]) == 3
 
     def test_suggestions_content_preserved(self, client):
-        import server as srv
         suggestions = ["光源を指定しましょう", "前景を追加しましょう", "色温度を明示しましょう"]
         srv.client = make_eval_client(suggestions=suggestions)
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
@@ -791,28 +791,24 @@ class TestEvaluate:
         assert "error" in res.json()
 
     def test_prompt_included_in_claude_call(self, client):
-        import server as srv
         srv.client = make_eval_client()
         client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert self.VALID_PROMPT in content
 
     def test_scene_ja_included_in_claude_call_when_provided(self, client):
-        import server as srv
         srv.client = make_eval_client()
         client.post("/evaluate", json={"prompt": self.VALID_PROMPT, "scene_ja": "霧の港の夕景"})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
         assert "霧の港の夕景" in content
 
     def test_scene_ja_optional(self, client):
-        import server as srv
         srv.client = make_eval_client()
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert res.status_code == 200
         assert "error" not in res.json()
 
     def test_scene_ja_absent_when_not_provided(self, client):
-        import server as srv
         srv.client = make_eval_client()
         client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         content = srv.client.messages.create.call_args.kwargs["messages"][0]["content"]
@@ -820,7 +816,6 @@ class TestEvaluate:
         assert "Japanese scene description" not in content
 
     def test_claude_api_error_returns_error(self, client):
-        import server as srv
         srv.client.messages.create.side_effect = Exception("API down")
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
         assert res.status_code == 200
@@ -828,7 +823,6 @@ class TestEvaluate:
         srv.client.messages.create.side_effect = None
 
     def test_malformed_response_returns_default_structure(self, client):
-        import server as srv
         msg = MagicMock()
         msg.content = [MagicMock(text="some random text without expected format")]
         srv.client.messages.create.return_value = msg
@@ -840,7 +834,6 @@ class TestEvaluate:
         assert data["score"] == 0
 
     def test_partial_response_parsed(self, client):
-        import server as srv
         msg = MagicMock()
         msg.content = [MagicMock(text="SCORE: 55\nSUBJECT: 6\nSUGGESTIONS:\n・色彩を豊かに")]
         srv.client.messages.create.return_value = msg
@@ -851,7 +844,6 @@ class TestEvaluate:
         assert len(data["suggestions"]) == 1
 
     def test_suggestions_strip_bullet(self, client):
-        import server as srv
         suggestions = ["光源を指定して"]
         srv.client = make_eval_client(suggestions=suggestions)
         res = client.post("/evaluate", json={"prompt": self.VALID_PROMPT})
@@ -880,25 +872,17 @@ SAMPLE_ENTRY_EXPAND = {
 
 
 @pytest.fixture()
-def history_client(tmp_path):
-    """LOG_PATH を一時ファイルに差し替えた TestClient を返す。"""
-    import server as srv
-    orig_log = srv.LOG_PATH
-    orig = (srv.model, srv.client, srv.tagger, srv._random_vocab)
+def history_client(client):
+    """client フィクスチャを流用し、ログファイルパスも一緒に返す。"""
+    yield client, Path(srv.LOG_PATH)
 
-    srv.model = make_model()
-    srv.client = make_client()
-    srv._random_vocab = ["孤独", "霧", "光"]
-    srv.tagger = make_tagger([])
 
-    log_file = tmp_path / "test.log"
-    srv.LOG_PATH = str(log_file)
-
-    with TestClient(srv.app) as tc:
-        yield tc, log_file
-
-    srv.model, srv.client, srv.tagger, srv._random_vocab = orig
-    srv.LOG_PATH = orig_log
+def write_log_entries(log_file: Path, *entries) -> None:
+    """テスト用ログファイルにエントリを書き込む。"""
+    log_file.write_text(
+        "".join(_json.dumps(e, ensure_ascii=False) + "\n" for e in entries),
+        encoding="utf-8",
+    )
 
 
 class TestHistory:
@@ -911,13 +895,8 @@ class TestHistory:
         assert data["total"] == 0
 
     def test_returns_entries_newest_first(self, history_client):
-        import json as _json
         tc, log_file = history_client
-        log_file.write_text(
-            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
-            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
+        write_log_entries(log_file, SAMPLE_ENTRY_PROMPT, SAMPLE_ENTRY_EXPAND)
         res = tc.get("/history")
         assert res.status_code == 200
         entries = res.json()["entries"]
@@ -926,87 +905,54 @@ class TestHistory:
         assert entries[1]["endpoint"] == "/prompt"
 
     def test_total_reflects_all_matches(self, history_client):
-        import json as _json
         tc, log_file = history_client
-        log_file.write_text(
-            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
-            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        res = tc.get("/history")
-        assert res.json()["total"] == 2
+        write_log_entries(log_file, SAMPLE_ENTRY_PROMPT, SAMPLE_ENTRY_EXPAND)
+        assert tc.get("/history").json()["total"] == 2
 
     def test_search_filters_by_scene_ja(self, history_client):
-        import json as _json
         tc, log_file = history_client
-        log_file.write_text(
-            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
-            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        res = tc.get("/history?q=孤独")
-        data = res.json()
+        write_log_entries(log_file, SAMPLE_ENTRY_PROMPT, SAMPLE_ENTRY_EXPAND)
+        data = tc.get("/history?q=孤独").json()
         assert data["total"] == 1
         assert data["entries"][0]["endpoint"] == "/prompt"
 
     def test_search_filters_by_prompt(self, history_client):
-        import json as _json
         tc, log_file = history_client
-        log_file.write_text(
-            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
-            _json.dumps(SAMPLE_ENTRY_EXPAND, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        res = tc.get("/history?q=sailing")
-        data = res.json()
+        write_log_entries(log_file, SAMPLE_ENTRY_PROMPT, SAMPLE_ENTRY_EXPAND)
+        data = tc.get("/history?q=sailing").json()
         assert data["total"] == 1
         assert data["entries"][0]["endpoint"] == "/expand"
 
     def test_search_no_match_returns_empty(self, history_client):
-        import json as _json
         tc, log_file = history_client
-        log_file.write_text(
-            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n",
-            encoding="utf-8",
-        )
-        res = tc.get("/history?q=一致しない文字列XYZ")
-        data = res.json()
+        write_log_entries(log_file, SAMPLE_ENTRY_PROMPT)
+        data = tc.get("/history?q=一致しない文字列XYZ").json()
         assert data["entries"] == []
         assert data["total"] == 0
 
     def test_limit_respected(self, history_client):
-        import json as _json
         tc, log_file = history_client
-        lines = "\n".join(
-            _json.dumps({**SAMPLE_ENTRY_PROMPT, "timestamp": f"2026-04-12T10:{i:02d}:00+00:00"},
-                        ensure_ascii=False)
+        write_log_entries(log_file, *[
+            {**SAMPLE_ENTRY_PROMPT, "timestamp": f"2026-04-12T10:{i:02d}:00+00:00"}
             for i in range(5)
-        ) + "\n"
-        log_file.write_text(lines, encoding="utf-8")
-        res = tc.get("/history?limit=3")
-        assert len(res.json()["entries"]) == 3
-        assert res.json()["total"] == 5
+        ])
+        res = tc.get("/history?limit=3").json()
+        assert len(res["entries"]) == 3
+        assert res["total"] == 5
 
     def test_offset_skips_entries(self, history_client):
-        import json as _json
         tc, log_file = history_client
-        lines = "\n".join(
-            _json.dumps({**SAMPLE_ENTRY_PROMPT, "timestamp": f"2026-04-12T10:{i:02d}:00+00:00"},
-                        ensure_ascii=False)
+        write_log_entries(log_file, *[
+            {**SAMPLE_ENTRY_PROMPT, "timestamp": f"2026-04-12T10:{i:02d}:00+00:00"}
             for i in range(5)
-        ) + "\n"
-        log_file.write_text(lines, encoding="utf-8")
-        res = tc.get("/history?limit=10&offset=3")
-        assert len(res.json()["entries"]) == 2
+        ])
+        assert len(tc.get("/history?limit=10&offset=3").json()["entries"]) == 2
 
     def test_malformed_lines_skipped(self, history_client):
-        import json as _json
         tc, log_file = history_client
         log_file.write_text(
             "not json\n" +
-            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n" +
-            "\n",
+            _json.dumps(SAMPLE_ENTRY_PROMPT, ensure_ascii=False) + "\n\n",
             encoding="utf-8",
         )
-        res = tc.get("/history")
-        assert res.json()["total"] == 1
+        assert tc.get("/history").json()["total"] == 1
